@@ -1,0 +1,182 @@
+/* ════════════════════════════════════════════════════════════════
+   ESTILOS DEL HEADER - Barra Superior Fija
+   ════════════════════════════════════════════════════════════════ */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 110;
+  
+  background-color: #0f172a;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  
+  height: 72px;
+  min-height: 72px;
+}
+
+/* ─── TEMA OSCURO ───────────────────────────────────────────── */
+.app-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1a2742 100%);
+}
+
+/* ─── BOTÓN DE MARCA ───────────────────────────────────────── */
+.brand-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+  
+  /* Hover effect */
+  &:hover {
+    transform: scale(1.02);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* ─── ICONO DE MARCA ───────────────────────────────────────── */
+.brand-icon {
+  color: #3b82f6;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.4));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.brand-button:hover .brand-icon {
+  color: #64b5f6;
+  filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.6));
+  transform: translateY(-2px);
+}
+
+/* ─── TEXTO DE MARCA ───────────────────────────────────────── */
+.brand-text {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.5px;
+  
+  background: linear-gradient(135deg, #e0f2fe, #bfdbfe);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  
+  transition: all 0.2s ease;
+}
+
+.brand-button:hover .brand-text {
+  letter-spacing: 0px;
+}
+
+/* ─── LIGHT MODE (si lo necesitas) ───────────────────────── */
+.app.theme-light .app-header {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e0f2fe 100%);
+  border-bottom-color: rgba(59, 130, 246, 0.15);
+}
+
+.app.theme-light .brand-text {
+  color: #0f172a;
+  background: linear-gradient(135deg, #0284c7, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.app.theme-light .brand-icon {
+  color: #0284c7;
+  filter: drop-shadow(0 0 8px rgba(2, 132, 199, 0.3));
+}
+
+.app.theme-light .brand-button:hover .brand-icon {
+  color: #3b82f6;
+  filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.4));
+}
+
+/* ─── BOTÓN HAMBURGUESA MÓVIL ───────────────────────────── */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: #3b82f6;
+  transition: all 0.2s ease;
+  margin-right: 12px;
+}
+
+.mobile-menu-btn:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  transform: scale(1.1);
+}
+
+.app.theme-light .mobile-menu-btn:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MEDIA QUERIES
+   ════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 12px 16px;
+    height: 64px;
+    min-height: 64px;
+    justify-content: flex-start;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .brand-button {
+    flex: 1;
+  }
+
+  .brand-text {
+    font-size: 20px;
+  }
+
+  .brand-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .brand-button {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 10px 12px;
+    height: 56px;
+    min-height: 56px;
+  }
+
+  .brand-text {
+    font-size: 18px;
+  }
+
+  .brand-icon {
+    width: 22px;
+    height: 22px;
+  }
+}

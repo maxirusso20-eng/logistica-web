@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext } from 'react';
 import { supabase } from './supabase';
 import './index.css';
 import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3 } from 'lucide-react';
@@ -8,6 +8,11 @@ import { useChoferes } from './hooks/useChoferes';
 import { useColectas } from './hooks/useColectas';
 import { useValidaciones, Formateo } from './hooks/useValidaciones';
 import { ModalAgregar } from './components/ModalAgregar';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { ModalAgregarChofer } from './components/ModalAgregarChofer';
+import { ModalConfirmarEliminar } from './components/ModalConfirmarEliminar';
+import { TarjetaChofer } from './components/TarjetaChofer';
 
 // ────────────────────────────────────────────────────────────────────────
 // CONTEXTO GLOBAL
@@ -23,6 +28,13 @@ function App() {
   const [currentPage, setCurrentPage] = useState('recorridos');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [toasts, setToasts] = useState([]);
+  const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
+
+  // ─── APLICAR TEMA AL CARGAR ────────────────────────────
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = `theme-${theme}`;
+  }, [theme]);
 
   // ─── SINCRONIZAR CON SUPABASE ─────────────────────────
   useEffect(() => {
@@ -96,6 +108,7 @@ function App() {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+    document.body.className = `theme-${newTheme}`;
   };
 
   const guardarChofer = async (choferData) => {
@@ -202,13 +215,29 @@ function App() {
   return (
     <AppContext.Provider value={contextValue}>
       <div className={`app theme-${theme}`}>
-        <Nav currentPage={currentPage} setCurrentPage={setCurrentPage} toggleTheme={toggleTheme} />
+        {/* HEADER FIJO - NO SE MUEVE */}
+        <Header 
+          onBrandClick={() => setCurrentPage('recorridos')}
+          onMobileMenuClick={() => setIsSidebarMobileOpen(true)}
+        />
         
-        <main className="main-content">
-          {currentPage === 'recorridos' && <PantallaRecorridos />}
-          {currentPage === 'choferes' && <PantallaChoferes />}
-          {currentPage === 'clientes' && <PantallaClientes />}
-        </main>
+        {/* CONTENEDOR SIDEBAR + MAIN - Debajo del header */}
+        <div className="app-body">
+          <Sidebar 
+            currentPage={currentPage} 
+            setCurrentPage={setCurrentPage} 
+            theme={theme}
+            toggleTheme={toggleTheme}
+            isMobileOpen={isSidebarMobileOpen}
+            setIsMobileOpen={setIsSidebarMobileOpen}
+          />
+          
+          <main className="main-content">
+            {currentPage === 'recorridos' && <PantallaRecorridos />}
+            {currentPage === 'choferes' && <PantallaChoferes />}
+            {currentPage === 'clientes' && <PantallaClientes />}
+          </main>
+        </div>
 
         {/* Toast Container */}
         <div className="toast-container">
@@ -224,45 +253,6 @@ function App() {
 // ════════════════════════════════════════════════════════════════
 // COMPONENTES
 // ════════════════════════════════════════════════════════════════
-
-function Nav({ currentPage, setCurrentPage, toggleTheme }) {
-  return (
-    <nav className="sidebar-nav">
-      <div className="nav-header">
-        <h1>📦 Logística</h1>
-      </div>
-
-      <div className="nav-buttons">
-        <button 
-          className={`nav-btn ${currentPage === 'recorridos' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('recorridos')}
-        >
-          🗺️ Recorridos
-        </button>
-
-        <button 
-          className={`nav-btn ${currentPage === 'choferes' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('choferes')}
-        >
-          👤 Choferes
-        </button>
-
-        <button 
-          className={`nav-btn ${currentPage === 'clientes' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('clientes')}
-        >
-          🏢 Clientes
-        </button>
-      </div>
-
-      <div className="nav-footer">
-        <button className="theme-btn" onClick={toggleTheme}>
-          🌙 Tema
-        </button>
-      </div>
-    </nav>
-  );
-}
 
 function PantallaRecorridos() {
   const { colectas, setColectas, loading, mostrarToast, theme, choferes } = useContext(AppContext);
@@ -302,8 +292,9 @@ function PantallaRecorridos() {
     if (!selectedZona || !localidad) return;
 
     try {
+      // ✅ LIMPIEZA: Solo enviar campos que SEGURO existen en la tabla
       const nuevaRuta = {
-        localidad: localidad,
+        localidad: localidad.trim(),
         zona: selectedZona,
         idChofer: 0,
         pqteDia: 0,
@@ -313,30 +304,43 @@ function PantallaRecorridos() {
 
       console.log('📤 Intentando insertar nueva ruta:', nuevaRuta);
 
-      const { data, error } = await supabase
+      // ✅ CONFIRMACIÓN REAL: Esperar respuesta de Supabase antes de actualizar estado
+      const { data, error, status } = await supabase
         .from('Recorridos')
         .insert([nuevaRuta])
         .select();
 
+      // ✅ MANEJO DE ERRORES: Si Supabase rebota, mostrar error específico
       if (error) {
+        const mensajeError = error.message || 'Error desconocido';
+        const detalles = error.details ? `\n${error.details}` : '';
+        const hint = error.hint ? `\n${error.hint}` : '';
+        
         console.error('❌ Error detallado en Supabase:', {
-          mensaje: error.message,
+          mensaje: mensajeError,
           codigo: error.code,
           detalles: error.details,
           hint: error.hint,
           payload: nuevaRuta
         });
+        
+        // Mostrar el error exacto de Supabase
+        mostrarToast(`❌ ${mensajeError}${detalles}`, 'error');
         throw error;
       }
 
-      console.log('✅ Inserción exitosa:', data);
-      setColectas(prev => [...prev, data[0]]);
-      mostrarToast(`✓ ${localidad} agregada a ${selectedZona}`, 'success');
-      setIsModalOpen(false);
-      setSelectedZona(null);
+      // ✅ SOLO actualizar state si Supabase devolvió datos exitosamente
+      if (data && data[0]) {
+        console.log('✅ Inserción exitosa (status: ' + status + '):', data);
+        setColectas(prev => [...prev, data[0]]);
+        mostrarToast(`✅ ${localidad} agregada correctamente a ${selectedZona}`, 'success');
+        setIsModalOpen(false);
+        setSelectedZona(null);
+      }
     } catch (err) {
       console.error('💥 Error completo:', err);
-      mostrarToast('Error al crear la fila - Revisa la consola (F12)', 'error');
+      // El error ya fue mostrado arriba, pero si llegamos aquí por otra razón:
+      mostrarToast(`❌ Error: ${err.message || 'No se pudo agregar la localidad'}`, 'error');
     }
   };
 
@@ -395,9 +399,6 @@ function PantallaRecorridos() {
             Gestión de Rutas y Paquetes
           </h1>
         </div>
-        <p style={{ margin: 0, color: colors.textSecondary, fontSize: '14px', fontWeight: '500' }}>
-          📝 Los cambios se guardan automáticamente. Edita directamente en la tabla.
-        </p>
       </div>
 
       {/* ZONAS */}
@@ -813,111 +814,225 @@ function PantallaRecorridos() {
 }
 
 function PantallaChoferes() {
-  const { choferes, guardarChofer, eliminarChofer, mostrarToast } = useContext(AppContext);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    nombre: '',
-    tel: '',
-    zona: '',
-    condicion: 'TITULAR',
-  });
+  const { choferes, mostrarToast, theme } = useContext(AppContext);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [choferEditando, setChoferEditando] = useState(null);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [choferAEliminar, setChoferAEliminar] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validaciones
-    if (!formData.nombre || !formData.tel) {
-      mostrarToast('Nombre y teléfono son obligatorios', 'error');
-      return;
-    }
-
-    await guardarChofer(formData);
-    setFormData({ nombre: '', tel: '', zona: '', condicion: 'TITULAR' });
-    setFormOpen(false);
+  const colors = {
+    backgroundColor: theme === 'light' ? '#f8fafc' : '#020617',
+    textPrimary: theme === 'light' ? '#1e293b' : '#f8fafc',
+    textSecondary: theme === 'light' ? '#64748b' : '#cbd5e1',
+    border: theme === 'light' ? '#e2e8f0' : '#334155',
+    buttonBg: '#3b82f6',
+    buttonHover: '#2563eb',
   };
 
-  return (
-    <div className="pantalla-choferes">
-      <div className="header">
-        <h2>👤 Choferes</h2>
-        <button className="btn btn-primary" onClick={() => setFormOpen(!formOpen)}>
-          {formOpen ? '❌ Cerrar' : '➕ Nuevo'}
-        </button>
-      </div>
+  const choferesFiltrados = useMemo(() => {
+    return choferes.filter(chofer => {
+      const matchBusqueda = chofer.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           chofer.tel.includes(searchTerm) ||
+                           chofer.choferIdAt.includes(searchTerm);
+      const matchEstado = filtroEstado === 'Todos' || chofer.estado === filtroEstado;
+      return matchBusqueda && matchEstado;
+    });
+  }, [choferes, searchTerm, filtroEstado]);
 
-      {formOpen && (
-        <form onSubmit={handleSubmit} className="form-chofer">
+  const handleGuardarChofer = useCallback(async (formData) => {
+    setLoading(true);
+    try {
+      if (choferEditando) {
+        const { error } = await supabase
+          .from('Choferes')
+          .update(formData)
+          .eq('id', choferEditando.id);
+        if (error) throw error;
+        mostrarToast('✅ Chofer actualizado correctamente', 'success');
+      } else {
+        const { error } = await supabase
+          .from('Choferes')
+          .insert([formData]);
+        if (error) throw error;
+        mostrarToast('✅ Chofer agregado correctamente', 'success');
+      }
+      setIsModalOpen(false);
+      setChoferEditando(null);
+    } catch (err) {
+      console.error('Error:', err);
+      mostrarToast(`❌ Error: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [choferEditando, mostrarToast]);
+
+  const handleEliminarChofer = useCallback(async (id) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('Choferes')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      mostrarToast('✅ Chofer eliminado correctamente', 'success');
+    } catch (err) {
+      console.error('Error:', err);
+      mostrarToast(`❌ Error: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+      setIsConfirmDeleteOpen(false);
+      setChoferAEliminar(null);
+    }
+  }, [mostrarToast]);
+
+  const handleConfirmDelete = useCallback((chofer) => {
+    setChoferAEliminar(chofer);
+    setIsConfirmDeleteOpen(true);
+  }, []);
+
+  const handleConfirmDeleteConfirm = useCallback(() => {
+    if (choferAEliminar) {
+      handleEliminarChofer(choferAEliminar.id);
+    }
+  }, [choferAEliminar, handleEliminarChofer]);
+
+  const handleConfirmDeleteCancel = useCallback(() => {
+    setIsConfirmDeleteOpen(false);
+    setChoferAEliminar(null);
+  }, []);
+
+  const handleAbrirModalNuevo = useCallback(() => {
+    setChoferEditando(null);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleEditarChofer = useCallback((chofer) => {
+    setChoferEditando(chofer);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCerrarModal = useCallback(() => {
+    setIsModalOpen(false);
+    setTimeout(() => {
+      setChoferEditando(null);
+    }, 300);
+  }, []);
+
+  return (
+    <div style={{ padding: '24px', backgroundColor: colors.backgroundColor, minHeight: '100vh' }}>
+      <ModalAgregarChofer
+        isOpen={isModalOpen}
+        onClose={handleCerrarModal}
+        onConfirm={handleGuardarChofer}
+        choferEditar={choferEditando}
+        tema={theme}
+      />
+
+      <ModalConfirmarEliminar
+        isOpen={isConfirmDeleteOpen}
+        nombre={choferAEliminar?.nombre || 'este chofer'}
+        onConfirm={handleConfirmDeleteConfirm}
+        onCancel={handleConfirmDeleteCancel}
+        tema={theme}
+      />
+
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '700', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              👤 Gestión de Choferes
+            </h1>
+            <p style={{ margin: '4px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
+              Total: {choferes.length} choferes registrados
+            </p>
+          </div>
+          <button
+            onClick={handleAbrirModalNuevo}
+            disabled={loading}
+            style={{ padding: '10px 20px', backgroundColor: colors.buttonBg, color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s ease', opacity: loading ? 0.6 : 1 }}
+            onMouseEnter={(e) => { if (!loading) { e.target.style.backgroundColor = colors.buttonHover; e.target.style.transform = 'translateY(-2px)'; } }}
+            onMouseLeave={(e) => { e.target.style.backgroundColor = colors.buttonBg; e.target.style.transform = 'translateY(0)'; }}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            Agregar Chofer
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <input
             type="text"
-            placeholder="Nombre"
-            value={formData.nombre}
-            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-            required
+            placeholder="Buscar por nombre, teléfono o ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, minWidth: '200px', padding: '10px 12px', backgroundColor: theme === 'light' ? '#ffffff' : '#1e293b', border: `1.5px solid ${colors.border}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease' }}
+            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)'; }}
+            onBlur={(e) => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; }}
           />
-          <input
-            type="tel"
-            placeholder="Teléfono"
-            value={formData.tel}
-            onChange={(e) => setFormData({ ...formData, tel: e.target.value })}
-            required
-          />
-          <select
-            value={formData.zona}
-            onChange={(e) => setFormData({ ...formData, zona: e.target.value })}
-          >
-            <option value="">Selecciona zona</option>
-            <option value="ZONA OESTE">Zona Oeste</option>
-            <option value="ZONA SUR">Zona Sur</option>
-            <option value="ZONA NORTE">Zona Norte</option>
-            <option value="CABA">CABA</option>
-          </select>
-          <select
-            value={formData.condicion}
-            onChange={(e) => setFormData({ ...formData, condicion: e.target.value })}
-          >
-            <option value="TITULAR">Titular</option>
-            <option value="SUPLENTE">Suplente</option>
-            <option value="COLECTADOR">Colectador</option>
-          </select>
-          <button type="submit" className="btn btn-success">
-            Guardar
-          </button>
-        </form>
-      )}
 
-      <div className="choferes-list">
-        {choferes && choferes.length > 0 ? (
-          choferes.map(chofer => (
-            <div key={chofer.id} className="chofer-card">
-              <div className="chofer-info">
-                <h3>{chofer.nombre}</h3>
-                <p>📱 {chofer.tel}</p>
-                <p>📍 {chofer.zona}</p>
-                <p>🏷️ {chofer.condicion}</p>
-              </div>
-              <div className="chofer-actions">
-                <button 
-                  className="btn btn-danger"
-                  onClick={() => eliminarChofer(chofer.id)}
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p>No hay choferes registrados</p>
-        )}
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            style={{ padding: '10px 12px', backgroundColor: theme === 'light' ? '#ffffff' : '#1e293b', border: `1.5px solid ${colors.border}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; }}
+            onBlur={(e) => { e.target.style.borderColor = colors.border; }}
+          >
+            <option value="Todos">Todos los estados</option>
+            <option value="Activo">✅ Activo</option>
+            <option value="Franco">📅 Franco</option>
+            <option value="Inactivo">❌ Inactivo</option>
+          </select>
+        </div>
       </div>
+
+      {choferesFiltrados.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+          {choferesFiltrados.map(chofer => (
+            <TarjetaChofer
+              key={chofer.id}
+              chofer={chofer}
+              onEdit={handleEditarChofer}
+              onConfirmDelete={handleConfirmDelete}
+              tema={theme}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: colors.textSecondary }}>
+          <AlertCircle size={48} strokeWidth={1.5} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+          <p style={{ fontSize: '16px', fontWeight: '500' }}>
+            {searchTerm || filtroEstado !== 'Todos' ? 'No se encontraron choferes con los filtros aplicados' : 'No hay choferes registrados aún'}
+          </p>
+          {(searchTerm || filtroEstado !== 'Todos') && (
+            <button
+              onClick={() => { setSearchTerm(''); setFiltroEstado('Todos'); }}
+              style={{ marginTop: '16px', padding: '8px 16px', backgroundColor: colors.buttonBg, color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease' }}
+              onMouseEnter={(e) => { e.target.style.backgroundColor = colors.buttonHover; }}
+              onMouseLeave={(e) => { e.target.style.backgroundColor = colors.buttonBg; }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 function PantallaClientes() {
+  const { theme } = useContext(AppContext);
+  const colors = {
+    backgroundColor: theme === 'light' ? '#f8fafc' : '#020617',
+    textPrimary: theme === 'light' ? '#1e293b' : '#f8fafc',
+    textSecondary: theme === 'light' ? '#64748b' : '#cbd5e1',
+  };
+
   return (
-    <div className="pantalla-clientes">
-      <h2>🏢 Clientes</h2>
-      <p>Próximamente...</p>
+    <div style={{ padding: '24px', backgroundColor: colors.backgroundColor, textAlign: 'center', minHeight: '100vh' }}>
+      <h2 style={{ color: colors.textPrimary }}>🏢 Clientes</h2>
+      <p style={{ color: colors.textSecondary }}>Próximamente...</p>
     </div>
   );
 }
