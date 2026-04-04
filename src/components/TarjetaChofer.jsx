@@ -1,178 +1,82 @@
-import { Edit2, Trash2, MapPin, Truck, FileText, Calendar } from 'lucide-react';
+import { Edit2, Trash2, MapPin, Truck, FileText, Calendar, Phone } from 'lucide-react';
 import { memo } from 'react';
 
-const TarjetaChoferComponent = ({ 
-  chofer, 
-  onEdit, 
-  onConfirmDelete,
-  tema = 'dark' 
-}) => {
-  const isDark = tema === 'dark';
-  const colors = {
-    cardBg: isDark 
-      ? 'rgba(30, 41, 59, 0.8)' 
-      : '#ffffff',
-    cardBgHover: isDark 
-      ? 'rgba(30, 41, 59, 0.95)' 
-      : 'rgba(255, 255, 255, 0.98)',
-    border: isDark 
-      ? 'rgba(71, 85, 105, 0.3)' 
-      : 'rgba(226, 232, 240, 0.6)',
-    textPrimary: isDark ? '#f1f5f9' : '#1e293b',
-    textData: isDark ? '#e2e8f0' : '#334155',
-    textLabel: isDark ? '#64748b' : '#94a3b8',
-    badge: '#3b82f6',
-    badgeBg: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)',
-    shadowCard: isDark 
-      ? '0 8px 32px rgba(0, 0, 0, 0.3)' 
-      : '0 4px 12px rgba(0, 0, 0, 0.08)',
-    shadowHover: isDark
-      ? '0 20px 40px rgba(59, 130, 246, 0.2)'
-      : '0 12px 24px rgba(59, 130, 246, 0.15)',
-  };
-
-  // Función para formatear fecha DD/MM/YYYY
-  const formatearFecha = (fecha) => {
-    if (!fecha) return 'N/A';
-    try {
-      const date = new Date(fecha);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch {
-      return fecha;
-    }
-  };
-
-  // Colores para zonas
-  const getZoneColor = (zona) => {
-    const zoneColors = {
-      'Oeste': { bg: '#3b82f6', text: '#ffffff', light: 'rgba(59, 130, 246, 0.15)' },      // Azul
-      'Sur': { bg: '#8b5cf6', text: '#ffffff', light: 'rgba(139, 92, 246, 0.15)' },        // Violeta
-      'Norte': { bg: '#ec4899', text: '#ffffff', light: 'rgba(236, 72, 153, 0.15)' },      // Rosa
-      'CABA': { bg: '#10b981', text: '#ffffff', light: 'rgba(16, 185, 129, 0.15)' },       // Verde
+const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
+  
+  // 🎨 1. Colores dinámicos a prueba de fallos
+  const getZoneBadge = (zona) => {
+    if (!zona) return 'bg-slate-500/15 text-slate-400 border-slate-500/30';
+    
+    // ESCUDO: Forzamos a que sea String sí o sí antes de usar toUpperCase
+    const z = String(zona).toUpperCase().trim();
+    
+    const badges = {
+      'OESTE': 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+      'SUR': 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+      'NORTE': 'bg-pink-500/15 text-pink-400 border-pink-500/30',
+      'CABA': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+      'OESTESUR': 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
     };
-    return zoneColors[zona] || { bg: '#6b7280', text: '#ffffff', light: 'rgba(107, 114, 128, 0.15)' };
+    
+    return badges[z] || 'bg-slate-500/15 text-slate-400 border-slate-500/30';
   };
 
-  // Colores para condición
-  const getCondicionColor = (condicion) => {
-    switch (condicion) {
-      case 'Titular':
-        return '#3b82f6'; // Azul
-      case 'Semititular':
-        return '#f59e0b'; // Ámbar
-      case 'Suplente':
-        return '#6b7280'; // Gris
-      default:
-        return colors.badge;
+  // ✂️ 2. Formateador de texto visual 
+  const formatZona = (zona) => {
+    if (!zona) return 'N/A';
+    // ESCUDO: Forzamos a String
+    const z = String(zona).toUpperCase().trim();
+    if (z === 'OESTESUR') return 'OESTE / SUR';
+    return z;
+  };
+
+  // 🟢 3. Puntos de color para la Condición
+  const getCondicionDot = (condicion) => {
+    if (!condicion) return 'bg-slate-400';
+    // ESCUDO: Forzamos a String
+    const c = String(condicion).toUpperCase().trim();
+    switch (c) {
+      case 'TITULAR': return 'bg-blue-500';
+      case 'SEMITITULAR': return 'bg-amber-500';
+      case 'SUPLENTE': return 'bg-slate-400';
+      default: return 'bg-blue-500';
     }
   };
 
   return (
-    <div
-      style={{
-        backgroundColor: colors.cardBg,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '16px',
-        padding: '20px',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: colors.shadowCard,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = colors.cardBgHover;
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = colors.shadowHover;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = colors.cardBg;
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = colors.shadowCard;
-      }}
-    >
-      {/* CABECERA: Nombre + Acciones */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <h3 style={{ 
-          margin: 0, 
-          fontSize: '16px', 
-          fontWeight: '700', 
-          color: colors.textPrimary,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: 1,
-        }}>
-          {chofer.nombre}
-        </h3>
-        
-        {/* Botones Editar y Eliminar */}
-        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+    <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 hover:bg-slate-800 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-900/20 relative overflow-hidden">
+      
+      {/* CABECERA */}
+      <div className="flex justify-between items-start gap-3 mb-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="m-0 text-base font-bold text-slate-100 truncate">
+            {chofer.nombre}
+          </h3>
+          {chofer.celular && (
+            <a
+              href={`https://wa.me/${chofer.celular.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 mt-1.5 transition-all duration-200 hover:text-green-400 hover:underline cursor-pointer"
+            >
+              <Phone size={12} className="text-slate-500 flex-shrink-0 group-hover:text-green-400" />
+              <p className="m-0 text-xs text-slate-400">
+                {chofer.celular}
+              </p>
+            </a>
+          )}
+        </div>
+        <div className="flex gap-1.5 flex-shrink-0">
           <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onEdit(chofer);
-            }}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              color: getZoneColor(chofer.zona).bg,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease',
-              padding: 0,
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = getZoneColor(chofer.zona).light;
-              e.target.style.color = getZoneColor(chofer.zona).bg;
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.color = getZoneColor(chofer.zona).bg;
-            }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(chofer); }}
+            className="w-8 h-8 rounded-md bg-transparent border-none text-slate-400 cursor-pointer flex items-center justify-center transition-all duration-200 hover:bg-blue-500/15 hover:text-blue-400 p-0"
             title="Editar"
           >
             <Edit2 size={16} strokeWidth={2} />
           </button>
-          
           <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onConfirmDelete(chofer);
-            }}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              color: '#ef4444',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease',
-              padding: 0,
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
-              e.target.style.color = '#ef4444';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.color = '#ef4444';
-            }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirmDelete(chofer); }}
+            className="w-8 h-8 rounded-md bg-transparent border-none text-slate-400 cursor-pointer flex items-center justify-center transition-all duration-200 hover:bg-red-500/15 hover:text-red-400 p-0"
             title="Eliminar"
           >
             <Trash2 size={16} strokeWidth={2} />
@@ -180,153 +84,71 @@ const TarjetaChoferComponent = ({
         </div>
       </div>
 
-      {/* CUERPO: Grid de información - 2 columnas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+      {/* GRID DE DATOS */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         {/* ZONA */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <MapPin size={14} strokeWidth={2} color={getZoneColor(chofer.zona).bg} />
-            <p style={{ 
-              margin: 0, 
-              fontSize: '10px', 
-              fontWeight: '700', 
-              color: colors.textLabel, 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
-            }}>
-              Zona
-            </p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <MapPin size={14} className="text-slate-400" />
+            <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zona</p>
           </div>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              backgroundColor: getZoneColor(chofer.zona).light,
-              color: getZoneColor(chofer.zona).bg,
-              padding: '6px 10px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: '700',
-              border: `1px solid ${getZoneColor(chofer.zona).bg}`,
-              width: 'fit-content',
-            }}
-          >
-            {chofer.zona || 'N/A'}
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border w-fit ${getZoneBadge(chofer.zona)}`}>
+            {formatZona(chofer.zona)}
           </span>
         </div>
 
         {/* VEHÍCULO */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Truck size={14} strokeWidth={2} color={colors.badge} />
-            <p style={{ 
-              margin: 0, 
-              fontSize: '10px', 
-              fontWeight: '700', 
-              color: colors.textLabel, 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
-            }}>
-              Vehículo
-            </p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <Truck size={14} className="text-slate-400" />
+            <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vehículo</p>
           </div>
-          <p style={{ margin: 0, fontSize: '14px', color: colors.textData, fontWeight: '600' }}>
-            {chofer.vehiculo || 'N/A'}
-          </p>
+          <p className="m-0 text-sm font-semibold text-slate-200">{chofer.vehiculo || 'N/A'}</p>
         </div>
 
         {/* DNI */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <FileText size={14} strokeWidth={2} color={colors.badge} />
-            <p style={{ 
-              margin: 0, 
-              fontSize: '10px', 
-              fontWeight: '700', 
-              color: colors.textLabel, 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
-            }}>
-              DNI
-            </p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <FileText size={14} className="text-slate-400" />
+            <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">DNI</p>
           </div>
-          <p style={{ margin: 0, fontSize: '14px', color: colors.textData, fontWeight: '600' }}>
-            {chofer.dni || 'N/A'}
-          </p>
+          <p className="m-0 text-sm font-semibold text-slate-200">{chofer.dni || 'N/A'}</p>
         </div>
 
         {/* CONDICIÓN */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div 
-              style={{
-                width: '14px',
-                height: '14px',
-                borderRadius: '50%',
-                backgroundColor: getCondicionColor(chofer.condicion),
-              }}
-            />
-            <p style={{ 
-              margin: 0, 
-              fontSize: '10px', 
-              fontWeight: '700', 
-              color: colors.textLabel, 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
-            }}>
-              Condición
-            </p>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded-full ${getCondicionDot(chofer.condicion)}`} />
+            <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Condición</p>
           </div>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              backgroundColor: `${getCondicionColor(chofer.condicion)}15`,
-              color: getCondicionColor(chofer.condicion),
-              padding: '6px 10px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: '700',
-              border: `1px solid ${getCondicionColor(chofer.condicion)}`,
-              width: 'fit-content',
-            }}
-          >
+          <span className="inline-flex items-center bg-slate-700/50 text-slate-300 px-2.5 py-1 rounded-full text-xs font-bold border border-slate-600 w-fit uppercase">
             {chofer.condicion || 'N/A'}
           </span>
         </div>
       </div>
 
-      {/* DIVIDER */}
-      <div style={{ height: '1px', backgroundColor: colors.border, margin: '12px 0' }} />
+      <div className="h-px bg-slate-700/50 my-3" />
 
-      {/* PIE: Dirección y Fecha - Small text, subtle */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {/* DIRECCIÓN */}
+      {/* FOOTER */}
+      <div className="flex flex-col gap-2">
         {chofer.direccion && (
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-            <MapPin size={12} strokeWidth={2} color={colors.textLabel} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <p style={{ 
-              margin: 0, 
-              fontSize: '11px', 
-              color: colors.textLabel, 
-              lineHeight: '1.4',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-            }}>
+          <a
+            href={`https://www.google.com/maps/search/${encodeURIComponent(chofer.direccion)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex gap-1.5 items-start transition-all duration-200 hover:text-blue-400 hover:underline cursor-pointer block"
+          >
+            <MapPin size={12} className="text-slate-500 shrink-0 mt-0.5" />
+            <p className="m-0 text-[11px] text-slate-400 leading-relaxed line-clamp-2">
               {chofer.direccion}
             </p>
-          </div>
+          </a>
         )}
-        
-        {/* FECHA INGRESO */}
         {chofer.fecha_ingreso && (
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <Calendar size={12} strokeWidth={2} color={colors.textLabel} style={{ flexShrink: 0 }} />
-            <p style={{ margin: 0, fontSize: '11px', color: colors.textLabel }}>
-              {formatearFecha(chofer.fecha_ingreso)}
+          <div className="flex gap-1.5 items-center">
+            <Calendar size={12} className="text-slate-500 shrink-0" />
+            <p className="m-0 text-[11px] text-slate-400">
+              {new Date(chofer.fecha_ingreso).toLocaleDateString('es-AR')}
             </p>
           </div>
         )}

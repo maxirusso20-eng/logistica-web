@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, createContext } from 'react';
 import { supabase } from './supabase';
 import './index.css';
-import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3 } from 'lucide-react';
+import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3, Trash2 } from 'lucide-react';
 
 // 🔗 ESTO ES LO QUE TE FALTA PARA CONECTAR TODO:
 import { useChoferes } from './hooks/useChoferes';
@@ -12,6 +12,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { ModalAgregarChofer } from './components/ModalAgregarChofer';
 import { ModalConfirmarEliminar } from './components/ModalConfirmarEliminar';
+import { ModalAgregarCliente } from './components/ModalAgregarCliente';
 import { TarjetaChofer } from './components/TarjetaChofer';
 
 // ────────────────────────────────────────────────────────────────────────
@@ -58,6 +59,14 @@ function App() {
         
         setColectas(colectasData || []);
 
+        // Cargar Clientes
+        const { data: clientesData } = await supabase
+          .from('Clientes')
+          .select('id, cliente, chofer, horario, direccion, tipo_dia, Choferes(celular)')
+          .order('cliente', { ascending: true });
+        
+        setClientes(clientesData || []);
+        console.log('Clientes cargados:', clientesData);
         console.log('✓ Datos cargados desde Supabase');
       } catch (err) {
         console.error('Error cargando datos:', err);
@@ -183,6 +192,60 @@ function App() {
     }
   };
 
+  const handleEliminarCliente = async (clienteId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('Clientes')
+        .delete()
+        .eq('id', clienteId);
+
+      if (error) throw error;
+
+      setClientes(prev => prev.filter(c => c.id !== clienteId));
+      mostrarToast('✅ Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err);
+      mostrarToast(`❌ Error al eliminar cliente: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEliminarClienteConfirm = async () => {
+    if (!itemAEliminar) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('Clientes')
+        .delete()
+        .eq('id', itemAEliminar.id);
+
+      if (error) throw error;
+
+      setClientes(prev => prev.filter(c => c.id !== itemAEliminar.id));
+      mostrarToast('✅ Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err);
+      mostrarToast(`❌ Error al eliminar cliente: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+      setIsConfirmDeleteOpen(false);
+      setItemAEliminar(null);
+    }
+  };
+
+  const handleEliminarClienteCancel = () => {
+    setIsConfirmDeleteOpen(false);
+    setItemAEliminar(null);
+  };
+
+  const handleOpenConfirmDeleteModal = (cliente) => {
+    setItemAEliminar(cliente);
+    setIsConfirmDeleteOpen(true);
+  };
+
   // ─── CONTEXTO GLOBAL ───────────────────────────────────
   const contextValue = {
     choferes,
@@ -200,6 +263,10 @@ function App() {
     eliminarChofer,
     guardarColecta,
     mostrarToast,
+    handleEliminarCliente,
+    handleEliminarClienteConfirm,
+    handleEliminarClienteCancel,
+    handleOpenConfirmDeleteModal,
   };
 
   // ─── RENDER ───────────────────────────────────────────
@@ -820,27 +887,19 @@ function PantallaChoferes() {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [choferAEliminar, setChoferAEliminar] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroZona, setFiltroZona] = useState('Todas');
   const [loading, setLoading] = useState(false);
-
-  const colors = {
-    backgroundColor: theme === 'light' ? '#f8fafc' : '#020617',
-    textPrimary: theme === 'light' ? '#1e293b' : '#f8fafc',
-    textSecondary: theme === 'light' ? '#64748b' : '#cbd5e1',
-    border: theme === 'light' ? '#e2e8f0' : '#334155',
-    buttonBg: '#3b82f6',
-    buttonHover: '#2563eb',
-  };
 
   const choferesFiltrados = useMemo(() => {
     return choferes.filter(chofer => {
       const matchBusqueda = chofer.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            chofer.tel.includes(searchTerm) ||
+                           chofer.celular.includes(searchTerm) ||
                            chofer.choferIdAt.includes(searchTerm);
-      const matchEstado = filtroEstado === 'Todos' || chofer.estado === filtroEstado;
-      return matchBusqueda && matchEstado;
+      const matchZona = filtroZona === 'Todas' || (chofer.zona && chofer.zona.includes(filtroZona));
+      return matchBusqueda && matchZona;
     });
-  }, [choferes, searchTerm, filtroEstado]);
+  }, [choferes, searchTerm, filtroZona]);
 
   const handleGuardarChofer = useCallback(async (formData) => {
     setLoading(true);
@@ -849,13 +908,15 @@ function PantallaChoferes() {
         const { error } = await supabase
           .from('Choferes')
           .update(formData)
-          .eq('id', choferEditando.id);
+          .eq('id', choferEditando.id)
+          .select();
         if (error) throw error;
         mostrarToast('✅ Chofer actualizado correctamente', 'success');
       } else {
         const { error } = await supabase
           .from('Choferes')
-          .insert([formData]);
+          .insert([formData])
+          .select();
         if (error) throw error;
         mostrarToast('✅ Chofer agregado correctamente', 'success');
       }
@@ -922,7 +983,8 @@ function PantallaChoferes() {
   }, []);
 
   return (
-    <div style={{ padding: '24px', backgroundColor: colors.backgroundColor, minHeight: '100vh' }}>
+    <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* Modales renderizados en la raíz para funcionar como fixed overlay */}
       <ModalAgregarChofer
         isOpen={isModalOpen}
         onClose={handleCerrarModal}
@@ -939,100 +1001,343 @@ function PantallaChoferes() {
         tema={theme}
       />
 
-      <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '32px', fontWeight: '700', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              👤 Gestión de Choferes
-            </h1>
-            <p style={{ margin: '4px 0 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-              Total: {choferes.length} choferes registrados
-            </p>
-          </div>
-          <button
-            onClick={handleAbrirModalNuevo}
-            disabled={loading}
-            style={{ padding: '10px 20px', backgroundColor: colors.buttonBg, color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s ease', opacity: loading ? 0.6 : 1 }}
-            onMouseEnter={(e) => { if (!loading) { e.target.style.backgroundColor = colors.buttonHover; e.target.style.transform = 'translateY(-2px)'; } }}
-            onMouseLeave={(e) => { e.target.style.backgroundColor = colors.buttonBg; e.target.style.transform = 'translateY(0)'; }}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            Agregar Chofer
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="Buscar por nombre, teléfono o ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, minWidth: '200px', padding: '10px 12px', backgroundColor: theme === 'light' ? '#ffffff' : '#1e293b', border: `1.5px solid ${colors.border}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease' }}
-            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)'; }}
-            onBlur={(e) => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; }}
-          />
-
-          <select
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            style={{ padding: '10px 12px', backgroundColor: theme === 'light' ? '#ffffff' : '#1e293b', border: `1.5px solid ${colors.border}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}
-            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; }}
-            onBlur={(e) => { e.target.style.borderColor = colors.border; }}
-          >
-            <option value="Todos">Todos los estados</option>
-            <option value="Activo">✅ Activo</option>
-            <option value="Franco">📅 Franco</option>
-            <option value="Inactivo">❌ Inactivo</option>
-          </select>
-        </div>
-      </div>
-
-      {choferesFiltrados.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-          {choferesFiltrados.map(chofer => (
-            <TarjetaChofer
-              key={chofer.id}
-              chofer={chofer}
-              onEdit={handleEditarChofer}
-              onConfirmDelete={handleConfirmDelete}
-              tema={theme}
-            />
-          ))}
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: colors.textSecondary }}>
-          <AlertCircle size={48} strokeWidth={1.5} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-          <p style={{ fontSize: '16px', fontWeight: '500' }}>
-            {searchTerm || filtroEstado !== 'Todos' ? 'No se encontraron choferes con los filtros aplicados' : 'No hay choferes registrados aún'}
-          </p>
-          {(searchTerm || filtroEstado !== 'Todos') && (
+      {/* Contenido principal */}
+      <div className="p-6">
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+            <div>
+              <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                👤 Gestión de Choferes
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                Total: {choferes.length} choferes registrados
+              </p>
+            </div>
             <button
-              onClick={() => { setSearchTerm(''); setFiltroEstado('Todos'); }}
-              style={{ marginTop: '16px', padding: '8px 16px', backgroundColor: colors.buttonBg, color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease' }}
-              onMouseEnter={(e) => { e.target.style.backgroundColor = colors.buttonHover; }}
-              onMouseLeave={(e) => { e.target.style.backgroundColor = colors.buttonBg; }}
+              onClick={handleAbrirModalNuevo}
+              disabled={loading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Limpiar filtros
+              <Plus size={18} strokeWidth={2.5} />
+              Agregar Chofer
             </button>
-          )}
+          </div>
+
+          <div className="flex gap-3 flex-wrap">
+            <input
+              type="text"
+              placeholder="Buscar por nombre, teléfono o ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 min-w-[200px] px-3 py-2.5 bg-white dark:bg-slate-900 border-1.5 border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 outline-none transition-all duration-200"
+            />
+
+            <select
+              value={filtroZona}
+              onChange={(e) => setFiltroZona(e.target.value)}
+              className="px-3 py-2.5 bg-white dark:bg-slate-900 border-1.5 border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 cursor-pointer focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 outline-none transition-all duration-200"
+            >
+              <option value="Todas">Todas las zonas</option>
+              <option value="OESTE">OESTE</option>
+              <option value="SUR">SUR</option>
+              <option value="NORTE">NORTE</option>
+              <option value="CABA">CABA</option>
+            </select>
+          </div>
         </div>
-      )}
+
+        {choferesFiltrados.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {choferesFiltrados.map(chofer => (
+              <TarjetaChofer
+                key={chofer.id}
+                chofer={chofer}
+                onEdit={handleEditarChofer}
+                onConfirmDelete={handleConfirmDelete}
+                tema={theme}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 px-5 text-slate-500 dark:text-slate-400">
+            <AlertCircle size={48} strokeWidth={1.5} className="mx-auto mb-4 opacity-50" />
+            <p className="text-base font-medium">
+              {searchTerm || filtroZona !== 'Todas' ? 'No se encontraron choferes con los filtros aplicados' : 'No hay choferes registrados aún'}
+            </p>
+            {(searchTerm || filtroZona !== 'Todas') && (
+              <button
+                onClick={() => { setSearchTerm(''); setFiltroZona('Todas'); }}
+                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all duration-200"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function PantallaClientes() {
-  const { theme } = useContext(AppContext);
-  const colors = {
-    backgroundColor: theme === 'light' ? '#f8fafc' : '#020617',
-    textPrimary: theme === 'light' ? '#1e293b' : '#f8fafc',
-    textSecondary: theme === 'light' ? '#64748b' : '#cbd5e1',
+
+  const { clientes, setClientes, mostrarToast, choferes } = useContext(AppContext);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tabActiva, setTabActiva] = useState('SEMANA'); // 'SEMANA' o 'SÁBADOS'
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [itemAEliminar, setItemAEliminar] = useState(null);
+
+  // Limpiar/refiltrar clientes al cambiar de pestaña
+  useEffect(() => {
+    // Forzar refiltrado limpiando algún estado si fuera necesario (aquí solo log)
+    console.log('Pestaña activa:', tabActiva);
+  }, [tabActiva]);
+
+  // Tabs config
+  const tabs = [
+    { label: 'LUNES A VIERNES', value: 'SEMANA' },
+    { label: 'SÁBADOS', value: 'SÁBADOS' }
+  ];
+
+  // Ordenamiento inteligente por horario
+  function parseHorario(horario) {
+    if (!horario) return null;
+    // Extrae HH:MM
+    const match = horario.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    const [_, h, m] = match;
+    return parseInt(h, 10) * 60 + parseInt(m, 10);
+  }
+
+  function ordenarPorHorario(arr) {
+    return [...arr].sort((a, b) => {
+      const ha = parseHorario(a.horario);
+      const hb = parseHorario(b.horario);
+      if (ha === null && hb === null) return 0;
+      if (ha === null) return 1;
+      if (hb === null) return -1;
+      return ha - hb;
+    });
+  }
+
+  // Filtro ultra-flexible para tipo_dia
+  const clientesFiltrados = useMemo(() => {
+    return ordenarPorHorario(
+      clientes.filter(c => {
+        const tipo = (c.tipo_dia?.trim().toUpperCase() || 'SEMANA');
+        if (tabActiva === 'SÁBADOS') {
+          // Mostrar solo los que sean SÁBADOS (sin importar espacios/caso)
+          return tipo === 'SÁBADOS';
+        } else if (tabActiva === 'SEMANA') {
+          // Mostrar los que sean SEMANA, null o string vacío
+          return tipo === 'SEMANA' || tipo === '' || c.tipo_dia == null;
+        }
+        return false;
+      })
+    );
+  }, [clientes, tabActiva]);
+
+  const handleGuardarCliente = async (formData) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('Clientes')
+        .insert([formData])
+        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
+      
+      if (error) throw error;
+      
+      setClientes(prev => [data[0], ...prev]);
+      setIsModalOpen(false);
+      mostrarToast('✅ Cliente agregado correctamente', 'success');
+    } catch (err) {
+      console.error('Error:', err);
+      mostrarToast(`❌ Error: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangeChofer = async (clienteId, nuevoChofer) => {
+    try {
+      const { data, error } = await supabase
+        .from('Clientes')
+        .update({ chofer: nuevoChofer })
+        .eq('id', clienteId)
+        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
+      
+      if (error) throw error;
+      
+      setClientes(prev => 
+        prev.map(c => c.id === clienteId ? data[0] : c)
+      );
+      mostrarToast('✅ Chofer actualizado', 'success');
+    } catch (err) {
+      console.error('Error:', err);
+      mostrarToast(`❌ Error al actualizar: ${err.message}`, 'error');
+    }
+  };
+
+  const handleEliminarCliente = async (clienteId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('Clientes')
+        .delete()
+        .eq('id', clienteId);
+
+      if (error) throw error;
+
+      setClientes(prev => prev.filter(c => c.id !== clienteId));
+      mostrarToast('✅ Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err);
+      mostrarToast(`❌ Error al eliminar cliente: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEliminarClienteConfirm = async () => {
+    if (!itemAEliminar) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('Clientes')
+        .delete()
+        .eq('id', itemAEliminar.id);
+
+      if (error) throw error;
+
+      setClientes(prev => prev.filter(c => c.id !== itemAEliminar.id));
+      mostrarToast('✅ Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err);
+      mostrarToast(`❌ Error al eliminar cliente: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+      setIsConfirmDeleteOpen(false);
+      setItemAEliminar(null);
+    }
+  };
+
+  const handleEliminarClienteCancel = () => {
+    setIsConfirmDeleteOpen(false);
+    setItemAEliminar(null);
+  };
+
+  const handleOpenConfirmDeleteModal = (cliente) => {
+    setItemAEliminar(cliente);
+    setIsConfirmDeleteOpen(true);
   };
 
   return (
-    <div style={{ padding: '24px', backgroundColor: colors.backgroundColor, textAlign: 'center', minHeight: '100vh' }}>
-      <h2 style={{ color: colors.textPrimary }}>🏢 Clientes</h2>
-      <p style={{ color: colors.textSecondary }}>Próximamente...</p>
+    <div className="w-full min-h-screen p-6 bg-slate-50 dark:bg-slate-950">
+      {/* MODAL */}
+      <ModalAgregarCliente
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleGuardarCliente}
+        choferes={choferes}
+        tabActiva={tabActiva}
+      />
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50">🏢 Gestión de Clientes</h1>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-blue-600 active:scale-95"
+        >
+          <Plus size={18} />
+          Agregar Cliente
+        </button>
+      </div>
+
+      {/* TABS */}
+      <div className="flex gap-2 mb-4">
+        {tabs.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => setTabActiva(tab.value)}
+            className={`px-4 py-2 rounded-t-lg font-semibold text-sm transition-all duration-150 border-b-2 focus:outline-none ${tabActiva === tab.value ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TABLA */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          {clientesFiltrados.length > 0 ? (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CLIENTE</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CHOFER</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CELULAR</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">HORARIO</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">DIRECCIÓN</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientesFiltrados.map((cliente, idx) => (
+                  <tr
+                    key={cliente.id || idx}
+                    className="border-b border-slate-200 dark:border-slate-700 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                  >
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.cliente || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <select
+                        value={cliente.chofer || ''}
+                        onChange={(e) => handleChangeChofer(cliente.id, e.target.value)}
+                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-slate-100 text-sm cursor-pointer transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-400"
+                      >
+                        <option value="">Seleccionar chofer...</option>
+                        {choferes.map(chofer => (
+                          <option key={chofer.id || chofer.nombre} value={chofer.nombre}>
+                            {chofer.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{cliente.Choferes?.celular || 'Sin celular'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{cliente.horario || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-xs truncate">{cliente.direccion || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-center">
+                      <button
+                        onClick={() => { setItemAEliminar(cliente); setIsConfirmDeleteOpen(true); }}
+                        className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors duration-200"
+                        title="Eliminar cliente"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+              <Package size={48} className="text-slate-400 dark:text-slate-500 mb-4" />
+              <p className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-1">No hay clientes registrados aún</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">Agrega tu primer cliente para comenzar</p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-blue-600 active:scale-95"
+              >
+                <Plus size={18} />
+                Agregar Cliente
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

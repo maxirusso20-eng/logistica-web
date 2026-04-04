@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Phone } from 'lucide-react';
 import { memo } from 'react';
 
 const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar = null, tema = 'dark' }) => {
@@ -11,6 +11,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
     condicion: '',
     direccion: '',
     fecha_ingreso: '',
+    celular: '',
   });
 
   const [error, setError] = useState('');
@@ -26,6 +27,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
         condicion: choferEditar.condicion || '',
         direccion: choferEditar.direccion || '',
         fecha_ingreso: choferEditar.fecha_ingreso || '',
+        celular: choferEditar.celular || '',
       });
     } else {
       setFormData({
@@ -36,6 +38,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
         condicion: '',
         direccion: '',
         fecha_ingreso: '',
+        celular: '',
       });
     }
     setError('');
@@ -102,6 +105,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
       condicion: '',
       direccion: '',
       fecha_ingreso: '',
+      celular: '',
     });
     setError('');
     onClose();
@@ -136,7 +140,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
       }}
     >
       <div
-        className={`relative w-full max-w-lg bg-[#1e293b] rounded-xl shadow-2xl p-6 border border-slate-700 transform transition-all duration-300 ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'}`}
+        className={`relative w-full max-w-lg bg-[#1e293b] rounded-xl shadow-2xl p-4 border border-slate-700 transform transition-all duration-300 mt-20 ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'}`}
         style={{
           maxHeight: '90vh',
           overflow: 'auto',
@@ -169,7 +173,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
         `}</style>
 
         {/* HEADER */}
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <h2 style={{
             margin: 0,
             fontSize: '24px',
@@ -188,12 +192,12 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
         </div>
 
         {/* FORM */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
           {/* ROW 1: ZONA + VEHÍCULO */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {/* ZONA */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Zona *
               </label>
               <select
@@ -201,7 +205,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.zona}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -215,7 +219,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
 
             {/* VEHÍCULO */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Vehículo *
               </label>
               <select
@@ -223,7 +227,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.vehiculo}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -237,7 +241,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
 
           {/* NOMBRE */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Nombre Completo *
             </label>
             <input
@@ -246,17 +250,17 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               value={formData.nombre}
               onChange={handleChange}
               placeholder="Ej: Juan Pérez"
-              style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
           </div>
 
           {/* ROW 2: DNI + CONDICIÓN */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {/* DNI */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 DNI *
               </label>
               <input
@@ -266,7 +270,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 onChange={handleChange}
                 placeholder="Ej: 12345678"
                 inputMode="numeric"
-                style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -274,7 +278,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
 
             {/* CONDICIÓN */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Condición *
               </label>
               <select
@@ -282,7 +286,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.condicion}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -296,7 +300,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
 
           {/* DIRECCIÓN */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Dirección
             </label>
             <input
@@ -305,15 +309,35 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               value={formData.direccion}
               onChange={handleChange}
               placeholder="Ej: Av. Principal 123, Apto 4B"
-              style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
           </div>
 
+          {/* CELULAR */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Celular
+            </label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Phone size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '10px', pointerEvents: 'none' }} />
+              <input
+                type="tel"
+                name="celular"
+                value={formData.celular}
+                onChange={handleChange}
+                placeholder="Ej: +54 9 1234567890"
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
+                onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
+              />
+            </div>
+          </div>
+
           {/* FECHA INGRESO */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: colors.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Fecha de Ingreso
             </label>
             <input
@@ -321,7 +345,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               name="fecha_ingreso"
               value={formData.fecha_ingreso}
               onChange={handleChange}
-              style={{ width: '100%', padding: '10px 12px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
@@ -333,7 +357,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               backgroundColor: `${colors.errorColor}15`,
               border: `1px solid ${colors.errorColor}`,
               borderRadius: '8px',
-              padding: '10px 12px',
+              padding: '8px 10px',
               fontSize: '13px',
               color: colors.errorColor,
               fontWeight: '500',
@@ -345,8 +369,8 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
           {/* BUTTONS */}
           <div style={{
             display: 'flex',
-            gap: '12px',
-            marginTop: '8px',
+            gap: '10px',
+            marginTop: '6px',
           }}>
             <button
               type="button"
@@ -356,7 +380,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               }}
               style={{
                 flex: 1,
-                padding: '10px 16px',
+                padding: '8px 14px',
                 backgroundColor: colors.inputBg,
                 border: `1.5px solid ${colors.inputBorder}`,
                 borderRadius: '8px',
@@ -384,7 +408,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               type="submit"
               style={{
                 flex: 1,
-                padding: '10px 16px',
+                padding: '8px 14px',
                 backgroundColor: colors.buttonBg,
                 border: 'none',
                 borderRadius: '8px',
