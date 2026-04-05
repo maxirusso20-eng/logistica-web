@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, MapPin, Users, Building2, Sun, Moon } from 'lucide-react';
+import { Menu, X, UsersRound, CarFront, Route, Globe, Sun, Moon } from 'lucide-react';
 import '../styles/sidebar.css';
 
 export function Sidebar({ 
@@ -40,10 +40,16 @@ export function Sidebar({
   // Si estamos en móvil, mostrar antes de navItems
   
   const navItems = [
-    { id: 'recorridos', label: 'Recorridos', icon: MapPin, emoji: '🗺️' },
-    { id: 'choferes', label: 'Choferes', icon: Users, emoji: '👤' },
-    { id: 'clientes', label: 'Clientes', icon: Building2, emoji: '🏢' },
+    { id: 'clientes', label: 'Clientes', icon: UsersRound },
+    { id: 'choferes', label: 'Choferes', icon: CarFront },
+    { id: 'recorridos', label: 'Recorridos', icon: Route },
+    { id: 'maps', label: 'Maps', icon: Globe },
   ];
+
+  const iconVolumeShadow =
+    theme === 'light'
+      ? 'drop-shadow(0px 3px 2px rgba(0, 0, 0, 0.22))'
+      : 'drop-shadow(0px 3px 3px rgba(0, 0, 0, 0.5))';
 
   // En móviles, mostrar como overlay
   if (isMobile) {
@@ -76,23 +82,31 @@ export function Sidebar({
 
           {/* NAVEGACIÓN MÓVIL */}
           <div className="nav-links">
-            {navItems.map(item => (
-              <button
-                key={item.id}
-                className={`nav-link ${currentPage === item.id ? 'active' : ''}`}
-                onClick={() => {
-                  setCurrentPage(item.id);
-                  setIsMobileOpen(false);
-                }}
-                title={item.label}
-              >
-                <span className="nav-icon">{item.emoji}</span>
-                <span className="nav-label">{item.label}</span>
-                {currentPage === item.id && (
-                  <span className="nav-indicator"></span>
-                )}
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const NavIcon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  className={`nav-link transition-all duration-200 hover:scale-105 ${currentPage === item.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setCurrentPage(item.id);
+                    setIsMobileOpen(false);
+                  }}
+                  title={item.label}
+                >
+                  <span
+                    className="nav-icon inline-flex items-center justify-center"
+                    style={{ filter: iconVolumeShadow }}
+                  >
+                    {NavIcon ? <NavIcon size={18} strokeWidth={2.25} /> : null}
+                  </span>
+                  <span className="nav-label">{item.label}</span>
+                  {currentPage === item.id && (
+                    <span className="nav-indicator"></span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* FOOTER MÓVIL */}
@@ -138,20 +152,28 @@ export function Sidebar({
 
       {/* NAVEGACIÓN */}
       <div className="nav-links">
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            className={`nav-link ${currentPage === item.id ? 'active' : ''}`}
-            onClick={() => setCurrentPage(item.id)}
-            title={item.label}
-          >
-            <span className="nav-icon">{item.emoji}</span>
-            {!isCollapsed && <span className="nav-label">{item.label}</span>}
-            {!isCollapsed && currentPage === item.id && (
-              <span className="nav-indicator"></span>
-            )}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          const NavIcon = item.icon;
+          return (
+            <button
+              key={item.id}
+              className={`nav-link transition-all duration-200 hover:scale-105 ${currentPage === item.id ? 'active' : ''}`}
+              onClick={() => setCurrentPage(item.id)}
+              title={item.label}
+            >
+              <span
+                className="nav-icon inline-flex items-center justify-center"
+                style={{ filter: iconVolumeShadow }}
+              >
+                {NavIcon ? <NavIcon size={18} strokeWidth={2.25} /> : null}
+              </span>
+              {!isCollapsed && <span className="nav-label">{item.label}</span>}
+              {!isCollapsed && currentPage === item.id && (
+                <span className="nav-indicator"></span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* FOOTER DEL SIDEBAR DESKTOP */}

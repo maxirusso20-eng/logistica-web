@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, createContext, useRef, useContext } from 'react';
 import { supabase } from './supabase';
 import './index.css';
-import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3, Trash2, GripVertical } from 'lucide-react';
+import { Truck, Package, Plus, MapPin, Map, TrendingUp, AlertCircle, CheckCircle, Grid3x3, Trash2, GripVertical } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -341,6 +341,7 @@ function App() {
             {currentPage === 'recorridos' && <PantallaRecorridos />}
             {currentPage === 'choferes' && <PantallaChoferes />}
             {currentPage === 'clientes' && <PantallaClientes />}
+            {currentPage === 'maps' && <PantallaMaps />}
           </main>
         </div>
 
@@ -1502,5 +1503,74 @@ function SortableFilaLocalidad({
   );
 }
 
+function PantallaMaps() {
+  const defaultQuery = 'Moron, Buenos Aires';
+  const [searchQuery, setSearchQuery] = useState(defaultQuery);
+  const [mapUrl, setMapUrl] = useState(
+    () =>
+      `https://maps.google.com/maps?q=${encodeURIComponent(defaultQuery)}&output=embed`
+  );
+
+  const handleBuscar = (e) => {
+    e.preventDefault();
+    const q = searchQuery.trim() || defaultQuery;
+    setMapUrl(`https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`);
+  };
+
+  return (
+    <div className="w-full min-h-screen p-6" style={{ background: 'var(--bg-page)', color: 'var(--text-2)' }}>
+      <header className="flex items-center gap-3 mb-6">
+        <Map size={32} strokeWidth={1.75} style={{ color: 'var(--brand-blue)' }} aria-hidden />
+        <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>
+          Buscador de Direcciones
+        </h1>
+      </header>
+
+      <form onSubmit={handleBuscar} className="flex flex-col sm:flex-row gap-3 mb-6 max-w-3xl">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Ej. Moron, Buenos Aires"
+          className="theme-input flex-1 px-4 py-3 rounded-lg text-sm outline-none border transition-colors"
+          style={{
+            background: 'var(--bg-surface)',
+            color: 'var(--text-1)',
+            borderColor: 'var(--border)',
+          }}
+          aria-label="Buscar dirección"
+        />
+        <button
+          type="submit"
+          className="px-6 py-3 rounded-lg font-semibold text-sm text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+          style={{ background: 'var(--brand-blue)' }}
+        >
+          Buscar
+        </button>
+      </form>
+
+      <div
+        className="rounded-xl border overflow-hidden shadow-sm w-full"
+        style={{
+          minHeight: 'min(70vh, 800px)',
+          height: '70vh',
+          background: 'var(--bg-surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <iframe
+          title="Mapa de direcciones"
+          src={mapUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0, display: 'block', minHeight: '500px' }}
+          frameBorder={0}
+          allowFullScreen
+          loading="lazy"
+        />
+      </div>
+    </div>
+  );
+}
 
 export default App;

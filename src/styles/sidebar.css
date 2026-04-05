@@ -213,11 +213,33 @@
   flex-shrink: 0;
 }
 
-/* ─── ETIQUETA DE NAVEGACIÓN ───────────────────────────────── */
+/* ─── ETIQUETA DE NAVEGACIÓN (mismo efecto que .brand-text del Header) ─── */
 .nav-label {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #e0f2fe, #bfdbfe);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transition: all 0.2s ease;
+}
+
+.sidebar.theme-light .nav-label {
+  background: linear-gradient(135deg, #0284c7, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Igual que .brand-button:hover .brand-text en header.css */
+.nav-link:hover .nav-label,
+.nav-link:focus-visible .nav-label {
+  letter-spacing: 0px;
 }
 
 /* ─── INDICADOR ACTIVO ───────────────────────────────────── */
