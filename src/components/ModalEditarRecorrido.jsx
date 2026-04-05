@@ -65,8 +65,8 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
         right: 0,
         bottom: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        
+        
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -148,7 +148,7 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
                 fontSize: '14px',
                 fontWeight: '500',
                 outline: 'none',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 80ms ease, background-color 80ms ease',
                 boxSizing: 'border-box',
               }}
               onFocus={(e) => {
@@ -190,7 +190,7 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
                 fontSize: '14px',
                 fontWeight: '500',
                 outline: 'none',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 80ms ease, background-color 80ms ease',
                 boxSizing: 'border-box',
                 cursor: 'pointer',
               }}
@@ -240,7 +240,7 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
                 fontSize: '14px',
                 fontWeight: '500',
                 outline: 'none',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 80ms ease, background-color 80ms ease',
                 boxSizing: 'border-box',
                 cursor: 'pointer',
               }}
@@ -294,7 +294,7 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
               fontSize: '14px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = '#475569';
@@ -325,7 +325,7 @@ export function ModalEditarRecorrido({ isOpen, recorrido, choferes, onClose, onC
               fontSize: '14px',
               fontWeight: '600',
               cursor: localidad.trim() && zona.trim() ? 'pointer' : 'not-allowed',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
               opacity: localidad.trim() && zona.trim() ? 1 : 0.6,
             }}
             onMouseEnter={(e) => {

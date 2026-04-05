@@ -131,7 +131,8 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      style={{ transition: 'opacity 100ms ease' }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           e.stopPropagation();
@@ -140,25 +141,13 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
       }}
     >
       <div
-        className={`relative w-full max-w-lg bg-[#1e293b] rounded-xl shadow-2xl p-4 border border-slate-700 transform transition-all duration-300 mt-20 ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'}`}
+        className="relative w-full max-w-lg bg-[#1e293b] rounded-xl shadow-2xl p-4 border border-slate-700 mt-20"
         style={{
           maxHeight: '90vh',
           overflow: 'auto',
         }}
       >
         <style>{`
-          @keyframes slideUpModal {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
-          /* Estilo personalizado para selects */
           .custom-select {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233b82f6' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
@@ -166,10 +155,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
             background-position: right 12px center;
             padding-right: 36px;
           }
-
-          .custom-select:focus {
-            outline: none;
-          }
+          .custom-select:focus { outline: none; }
         `}</style>
 
         {/* HEADER */}
@@ -205,7 +191,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.zona}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -227,7 +213,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.vehiculo}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -250,7 +236,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               value={formData.nombre}
               onChange={handleChange}
               placeholder="Ej: Juan Pérez"
-              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
@@ -270,7 +256,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 onChange={handleChange}
                 placeholder="Ej: 12345678"
                 inputMode="numeric"
-                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -286,7 +272,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.condicion}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.selectBg, border: `1.5px solid ${colors.selectBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.selectText, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.selectBg; e.target.style.borderColor = colors.selectBorder; }}
               >
@@ -309,7 +295,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               value={formData.direccion}
               onChange={handleChange}
               placeholder="Ej: Av. Principal 123, Apto 4B"
-              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
@@ -328,7 +314,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 value={formData.celular}
                 onChange={handleChange}
                 placeholder="Ej: +54 9 1234567890"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -345,7 +331,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
               name="fecha_ingreso"
               value={formData.fecha_ingreso}
               onChange={handleChange}
-              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+              style={{ width: '100%', padding: '8px 10px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: 'pointer' }}
               onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
               onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
             />
@@ -392,7 +378,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 80ms ease, background-color 80ms ease',
               }}
               onMouseEnter={(e) => {
                 e.target.style.backgroundColor = colors.inputFocus;
@@ -420,7 +406,7 @@ const ModalAgregarChoferComponent = ({ isOpen, onClose, onConfirm, choferEditar 
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                transition: 'all 0.2s ease',
+                transition: 'border-color 80ms ease, background-color 80ms ease',
               }}
               onMouseEnter={(e) => {
                 e.target.style.backgroundColor = colors.buttonHover;

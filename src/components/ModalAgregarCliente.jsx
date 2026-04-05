@@ -105,7 +105,8 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      style={{ transition: 'opacity 100ms ease' }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           e.stopPropagation();
@@ -114,24 +115,13 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
       }}
     >
       <div
-        className={`relative w-full max-w-md bg-[#1e293b] rounded-xl shadow-2xl p-4 border border-slate-700 transform transition-all duration-300 mt-20 ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'}`}
+        className="relative w-full max-w-md bg-[#1e293b] rounded-xl shadow-2xl p-4 border border-slate-700 mt-20"
         style={{
           maxHeight: '90vh',
           overflow: 'auto',
         }}
       >
         <style>{`
-          @keyframes slideUpModal {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
           .custom-select {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233b82f6' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
@@ -139,10 +129,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
             background-position: right 12px center;
             padding-right: 36px;
           }
-
-          .custom-select:focus {
-            outline: none;
-          }
+          .custom-select:focus { outline: none; }
         `}</style>
 
         {/* HEADER */}
@@ -179,7 +166,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 value={formData.cliente}
                 onChange={handleChange}
                 placeholder="Ej: Empresa ABC SRL"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -199,7 +186,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 onChange={handleChoferChange}
                 className="custom-select"
                 disabled={choferes.length === 0}
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: choferes.length === 0 ? colors.inputBorder : colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: choferes.length === 0 ? 'not-allowed' : 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: choferes.length === 0 ? colors.inputBorder : colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: choferes.length === 0 ? 'not-allowed' : 'pointer' }}
                 onFocus={(e) => { if (choferes.length > 0) { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; } }}
                 onBlur={(e) => { e.target.style.backgroundColor = choferes.length === 0 ? colors.inputBorder : colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               >
@@ -230,7 +217,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 value={formData.celular}
                 onChange={handleChange}
                 placeholder="Ej: +54 9 1234567890"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -250,7 +237,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 value={formData.horario}
                 onChange={handleChange}
                 placeholder="Ej: 08:00 - 12:00"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -270,7 +257,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 value={formData.direccion}
                 onChange={handleChange}
                 placeholder="Ej: Av. Rivadavia 1234, CABA"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               />
@@ -289,7 +276,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
                 value={formData.tipo_dia}
                 onChange={handleChange}
                 className="custom-select"
-                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '8px 10px 8px 36px', backgroundColor: colors.inputBg, border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', fontSize: '14px', color: colors.textPrimary, outline: 'none', transition: 'border-color 80ms ease, background-color 80ms ease', boxSizing: 'border-box', cursor: 'pointer' }}
                 onFocus={(e) => { e.target.style.backgroundColor = colors.inputFocus; e.target.style.borderColor = colors.focusBorder; }}
                 onBlur={(e) => { e.target.style.backgroundColor = colors.inputBg; e.target.style.borderColor = colors.inputBorder; }}
               >
@@ -306,7 +293,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
             <button
               type="button"
               onClick={handleClose}
-              style={{ padding: '8px 18px', border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', backgroundColor: 'transparent', color: colors.textSecondary, fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease' }}
+              style={{ padding: '8px 18px', border: `1.5px solid ${colors.inputBorder}`, borderRadius: '8px', backgroundColor: 'transparent', color: colors.textSecondary, fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'border-color 80ms ease, background-color 80ms ease' }}
               onMouseEnter={(e) => e.target.style.borderColor = colors.focusBorder}
               onMouseLeave={(e) => e.target.style.borderColor = colors.inputBorder}
             >
@@ -314,7 +301,7 @@ const ModalAgregarClienteComponent = ({ isOpen, onClose, onConfirm, choferes = [
             </button>
             <button
               type="submit"
-              style={{ padding: '8px 18px', backgroundColor: colors.buttonBg, border: 'none', borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s ease' }}
+              style={{ padding: '8px 18px', backgroundColor: colors.buttonBg, border: 'none', borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'border-color 80ms ease, background-color 80ms ease' }}
               onMouseEnter={(e) => e.target.style.backgroundColor = colors.buttonHover}
               onMouseLeave={(e) => e.target.style.backgroundColor = colors.buttonBg}
             >

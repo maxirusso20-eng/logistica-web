@@ -44,12 +44,28 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
   };
 
   return (
-    <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-md transition-all duration-300 hover:bg-slate-800 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-900/20 relative overflow-hidden">
+    <div
+      className="rounded-2xl p-5 relative overflow-hidden"
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-sm)',
+        transition: 'transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = '';
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+      }}
+    >
       
       {/* CABECERA */}
       <div className="flex justify-between items-start gap-3 mb-4">
         <div className="flex-1 min-w-0">
-          <h3 className="m-0 text-base font-bold text-slate-100 truncate">
+          <h3 className="m-0 text-base font-bold truncate" style={{ color: 'var(--text-1)' }}>
             {chofer.nombre}
           </h3>
           {chofer.celular && (
@@ -57,10 +73,10 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
               href={`https://wa.me/${chofer.celular.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 mt-1.5 transition-all duration-200 hover:text-green-400 hover:underline cursor-pointer"
+              className="flex items-center gap-1.5 mt-1.5 transition-all duration-150 hover:text-green-400 hover:underline cursor-pointer"
             >
               <Phone size={12} className="text-slate-500 flex-shrink-0 group-hover:text-green-400" />
-              <p className="m-0 text-xs text-slate-400">
+              <p className="m-0 text-xs" style={{ color: 'var(--text-3)' }}>
                 {chofer.celular}
               </p>
             </a>
@@ -103,7 +119,7 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
             <Truck size={14} className="text-slate-400" />
             <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vehículo</p>
           </div>
-          <p className="m-0 text-sm font-semibold text-slate-200">{chofer.vehiculo || 'N/A'}</p>
+          <p className="m-0 text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{chofer.vehiculo || 'N/A'}</p>
         </div>
 
         {/* DNI */}
@@ -112,7 +128,7 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
             <FileText size={14} className="text-slate-400" />
             <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">DNI</p>
           </div>
-          <p className="m-0 text-sm font-semibold text-slate-200">{chofer.dni || 'N/A'}</p>
+          <p className="m-0 text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{chofer.dni || 'N/A'}</p>
         </div>
 
         {/* CONDICIÓN */}
@@ -121,13 +137,13 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
             <div className={`w-3 h-3 rounded-full ${getCondicionDot(chofer.condicion)}`} />
             <p className="m-0 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Condición</p>
           </div>
-          <span className="inline-flex items-center bg-slate-700/50 text-slate-300 px-2.5 py-1 rounded-full text-xs font-bold border border-slate-600 w-fit uppercase">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border w-fit" style={{ background: 'var(--bg-raised)', color: 'var(--text-2)', borderColor: 'var(--border-strong)' }}>
             {chofer.condicion || 'N/A'}
           </span>
         </div>
       </div>
 
-      <div className="h-px bg-slate-700/50 my-3" />
+      <div className="h-px my-3" style={{ background: 'var(--border)' }} />
 
       {/* FOOTER */}
       <div className="flex flex-col gap-2">
@@ -136,10 +152,10 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
             href={`https://www.google.com/maps/search/${encodeURIComponent(chofer.direccion)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex gap-1.5 items-start transition-all duration-200 hover:text-blue-400 hover:underline cursor-pointer block"
+            className="flex gap-1.5 items-start transition-all duration-150 hover:text-blue-400 hover:underline cursor-pointer block"
           >
             <MapPin size={12} className="text-slate-500 shrink-0 mt-0.5" />
-            <p className="m-0 text-[11px] text-slate-400 leading-relaxed line-clamp-2">
+            <p className="m-0 text-[11px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-3)' }}>
               {chofer.direccion}
             </p>
           </a>
@@ -147,7 +163,7 @@ const TarjetaChoferComponent = ({ chofer, onEdit, onConfirmDelete }) => {
         {chofer.fecha_ingreso && (
           <div className="flex gap-1.5 items-center">
             <Calendar size={12} className="text-slate-500 shrink-0" />
-            <p className="m-0 text-[11px] text-slate-400">
+            <p className="m-0 text-[11px]" style={{ color: 'var(--text-3)' }}>
               {new Date(chofer.fecha_ingreso).toLocaleDateString('es-AR')}
             </p>
           </div>

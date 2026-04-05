@@ -51,6 +51,7 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.body.className = `theme-${theme}`;
+    document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
   // ─── SINCRONIZAR CON SUPABASE ─────────────────────────
@@ -72,8 +73,27 @@ function App() {
           .from('Recorridos')
           .select('*')
           .order('localidad', { ascending: true });
-        
-        setColectas(colectasData || []);
+
+        // Restaurar orden guardado por zona desde localStorage
+        const colectasRaw = colectasData || [];
+        const ZONAS_KEYS = ['ZONA OESTE', 'ZONA SUR', 'ZONA NORTE', 'CABA'];
+        let colectasOrdenadas = [...colectasRaw];
+        ZONAS_KEYS.forEach(zona => {
+          const saved = localStorage.getItem(`orden_zona_${zona}`);
+          if (!saved) return;
+          try {
+            const ids = JSON.parse(saved); // [id, id, id, ...]
+            const deEstaZona = colectasRaw.filter(c => c.zona === zona);
+            const otras = colectasOrdenadas.filter(c => c.zona !== zona);
+            // Reordenar según ids guardados; los que no estén en ids van al final
+            const reordenados = [
+              ...ids.map(id => deEstaZona.find(c => c.id === id)).filter(Boolean),
+              ...deEstaZona.filter(c => !ids.includes(c.id))
+            ];
+            colectasOrdenadas = [...otras, ...reordenados];
+          } catch {}
+        });
+        setColectas(colectasOrdenadas);
 
         // Cargar Clientes
         const { data: clientesData } = await supabase
@@ -130,10 +150,12 @@ function App() {
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+    // Apply synchronously before React re-render for instant visual switch
     document.documentElement.setAttribute('data-theme', newTheme);
     document.body.className = `theme-${newTheme}`;
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
   };
 
   const guardarChofer = async (choferData) => {
@@ -379,6 +401,8 @@ function PantallaRecorridos() {
       const oldIndex = zonasItems.findIndex(c => c.id === active.id);
       const newIndex = zonasItems.findIndex(c => c.id === over.id);
       const reordered = arrayMove(zonasItems, oldIndex, newIndex);
+      // 💾 Persistir orden en localStorage
+      localStorage.setItem(`orden_zona_${zona}`, JSON.stringify(reordered.map(c => c.id)));
       return [...otherItems, ...reordered];
     });
   };
@@ -809,10 +833,10 @@ function PantallaChoferes() {
 
   const choferesFiltrados = useMemo(() => {
     return choferes.filter(chofer => {
-      const matchBusqueda = chofer.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           chofer.tel.includes(searchTerm) ||
-                           chofer.celular.includes(searchTerm) ||
-                           chofer.choferIdAt.includes(searchTerm);
+      const matchBusqueda = (chofer.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (chofer.tel || '').includes(searchTerm) ||
+                           (chofer.celular || '').includes(searchTerm) ||
+                           (chofer.choferIdAt || '').includes(searchTerm);
       const matchZona = filtroZona === 'Todas' || (chofer.zona && chofer.zona.includes(filtroZona));
       return matchBusqueda && matchZona;
     });
@@ -900,7 +924,7 @@ function PantallaChoferes() {
   }, []);
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="w-full min-h-screen" style={{ background: 'var(--bg-page)', color: 'var(--text-2)' }}>
       {/* Modales renderizados en la raíz para funcionar como fixed overlay */}
       <ModalAgregarChofer
         isOpen={isModalOpen}
@@ -923,17 +947,17 @@ function PantallaChoferes() {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+              <h1 className="text-4xl font-bold flex items-center gap-2" style={{ color: 'var(--text-1)' }}>
                 👤 Gestión de Choferes
               </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>
                 Total: {choferes.length} choferes registrados
               </p>
             </div>
             <button
               onClick={handleAbrirModalNuevo}
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-150 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Plus size={18} strokeWidth={2.5} />
               Agregar Chofer
@@ -946,13 +970,12 @@ function PantallaChoferes() {
               placeholder="Buscar por nombre, teléfono o ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-2.5 bg-white dark:bg-slate-900 border-1.5 border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 outline-none transition-all duration-200"
+              className="theme-input flex-1 min-w-[200px] px-3 py-2.5 rounded-lg text-sm outline-none"
             />
-
             <select
               value={filtroZona}
               onChange={(e) => setFiltroZona(e.target.value)}
-              className="px-3 py-2.5 bg-white dark:bg-slate-900 border-1.5 border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 cursor-pointer focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 outline-none transition-all duration-200"
+              className="theme-input px-3 py-2.5 rounded-lg text-sm cursor-pointer outline-none"
             >
               <option value="Todas">Todas las zonas</option>
               <option value="OESTE">OESTE</option>
@@ -976,7 +999,7 @@ function PantallaChoferes() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 px-5 text-slate-500 dark:text-slate-400">
+          <div className="text-center py-16 px-5" style={{ color: 'var(--text-3)' }}>
             <AlertCircle size={48} strokeWidth={1.5} className="mx-auto mb-4 opacity-50" />
             <p className="text-base font-medium">
               {searchTerm || filtroZona !== 'Todas' ? 'No se encontraron choferes con los filtros aplicados' : 'No hay choferes registrados aún'}
@@ -984,7 +1007,7 @@ function PantallaChoferes() {
             {(searchTerm || filtroZona !== 'Todas') && (
               <button
                 onClick={() => { setSearchTerm(''); setFiltroZona('Todas'); }}
-                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all duration-200"
+                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all duration-150"
               >
                 Limpiar filtros
               </button>
@@ -1132,7 +1155,7 @@ function PantallaClientes() {
   };
 
   return (
-    <div className="w-full min-h-screen p-6 bg-slate-50 dark:bg-slate-950">
+    <div className="w-full min-h-screen p-6" style={{ background: 'var(--bg-page)', color: 'var(--text-2)' }}>
       {/* MODALES */}
       <ModalAgregarCliente
         isOpen={isModalOpen}
@@ -1151,10 +1174,10 @@ function PantallaClientes() {
 
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50">🏢 Gestión de Clientes</h1>
+        <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>🏢 Gestión de Clientes</h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-blue-600 active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-150 hover:bg-blue-600 active:scale-95"
         >
           <Plus size={18} />
           Agregar Cliente
@@ -1167,7 +1190,11 @@ function PantallaClientes() {
           <button
             key={tab.value}
             onClick={() => setTabActiva(tab.value)}
-            className={`px-4 py-2 rounded-t-lg font-semibold text-sm transition-all duration-150 border-b-2 focus:outline-none ${tabActiva === tab.value ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            className="px-4 py-2 rounded-t-lg font-semibold text-sm transition-all duration-100 border-b-2 focus:outline-none"
+            style={tabActiva === tab.value
+              ? { background: 'var(--bg-raised)', borderColor: 'var(--brand-blue)', color: 'var(--brand-blue)' }
+              : { background: 'var(--bg-hover)', borderColor: 'transparent', color: 'var(--text-3)' }
+            }
           >
             {tab.label}
           </button>
@@ -1175,32 +1202,33 @@ function PantallaClientes() {
       </div>
 
       {/* TABLA */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="rounded-xl border overflow-hidden shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <div className="overflow-x-auto">
           {clientesFiltrados.length > 0 ? (
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CLIENTE</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CHOFER</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CELULAR</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">HORARIO</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">DIRECCIÓN</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ACCIONES</th>
+                <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)' }}>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>CLIENTE</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>CHOFER</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>CELULAR</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>HORARIO</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>DIRECCIÓN</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {clientesFiltrados.map((cliente, idx) => (
                   <tr
                     key={cliente.id || idx}
-                    className="border-b border-slate-200 dark:border-slate-700 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                    className="clientes-row"
+                    style={{ borderBottom: '1px solid var(--border)' }}
                   >
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{cliente.cliente || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm font-medium" style={{ color: 'var(--text-1)' }}>{cliente.cliente || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm">
                       <select
                         value={cliente.chofer || ''}
                         onChange={(e) => handleChangeChofer(cliente.id, e.target.value)}
-                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-slate-100 text-sm cursor-pointer transition-all duration-200 hover:border-blue-400 dark:hover:border-blue-400"
+                        className="theme-input px-2.5 py-1.5 rounded text-sm cursor-pointer outline-none"
                       >
                         <option value="">Seleccionar chofer...</option>
                         {choferes.map(chofer => (
@@ -1210,13 +1238,13 @@ function PantallaClientes() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{cliente.Choferes?.celular || 'Sin celular'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{cliente.horario || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-xs truncate">{cliente.direccion || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--text-2)' }}>{cliente.Choferes?.celular || 'Sin celular'}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: 'var(--text-2)' }}>{cliente.horario || 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm max-w-xs truncate" style={{ color: 'var(--text-3)' }}>{cliente.direccion || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-center">
                       <button
                         onClick={() => { setItemAEliminar(cliente); setIsConfirmDeleteOpen(true); }}
-                        className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors duration-200"
+                        className="text-red-500 hover:text-red-400 transition-colors duration-150"
                         title="Eliminar cliente"
                       >
                         <Trash2 size={18} />
@@ -1227,13 +1255,13 @@ function PantallaClientes() {
               </tbody>
             </table>
           ) : (
-            <div className="flex flex-col items-center justify-center text-center py-16 px-6">
-              <Package size={48} className="text-slate-400 dark:text-slate-500 mb-4" />
-              <p className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-1">No hay clientes registrados aún</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">Agrega tu primer cliente para comenzar</p>
+            <div className="flex flex-col items-center justify-center text-center py-16 px-6" style={{ color: 'var(--text-3)' }}>
+              <Package size={48} className="mb-4 opacity-40" />
+              <p className="text-lg font-medium mb-1" style={{ color: 'var(--text-1)' }}>No hay clientes registrados aún</p>
+              <p className="text-sm mb-6">Agrega tu primer cliente para comenzar</p>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-200 hover:bg-blue-600 active:scale-95"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-semibold text-sm transition-all duration-150 hover:bg-blue-600 active:scale-95"
               >
                 <Plus size={18} />
                 Agregar Cliente

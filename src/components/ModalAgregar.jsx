@@ -41,8 +41,8 @@ export function ModalAgregar({ isOpen, zona, onClose, onConfirm }) {
         right: 0,
         bottom: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        
+        
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -110,7 +110,7 @@ export function ModalAgregar({ isOpen, zona, onClose, onConfirm }) {
             fontSize: '14px',
             fontWeight: '500',
             outline: 'none',
-            transition: 'all 0.2s ease',
+            transition: 'border-color 80ms ease, background-color 80ms ease',
             boxSizing: 'border-box',
             marginBottom: '20px',
           }}
@@ -149,7 +149,7 @@ export function ModalAgregar({ isOpen, zona, onClose, onConfirm }) {
               fontSize: '14px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = '#475569';
@@ -180,7 +180,7 @@ export function ModalAgregar({ isOpen, zona, onClose, onConfirm }) {
               fontSize: '14px',
               fontWeight: '600',
               cursor: localidad.trim() ? 'pointer' : 'not-allowed',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
               opacity: localidad.trim() ? 1 : 0.6,
             }}
             onMouseEnter={(e) => {

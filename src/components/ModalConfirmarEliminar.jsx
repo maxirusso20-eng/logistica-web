@@ -28,7 +28,7 @@ const ModalConfirmarEliminarComponent = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'opacity 120ms ease, transform 120ms ease',
         opacity: isOpen ? 1 : 0,
         pointerEvents: isOpen ? 'auto' : 'none',
       }}
@@ -45,8 +45,8 @@ const ModalConfirmarEliminarComponent = ({
           position: 'absolute',
           inset: 0,
           backgroundColor: colors.overlay,
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          
+          
         }}
       />
 
@@ -64,7 +64,7 @@ const ModalConfirmarEliminarComponent = ({
           maxWidth: '400px',
           width: '90%',
           transform: isOpen ? 'scale(1)' : 'scale(0.95)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'opacity 120ms ease, transform 120ms ease',
         }}
        onMouseDown={(e) => e.stopPropagation()}
       >
@@ -142,7 +142,7 @@ const ModalConfirmarEliminarComponent = ({
               fontWeight: '600',
               color: colors.textPrimary,
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = colors.buttonCancelHover;
@@ -174,7 +174,7 @@ const ModalConfirmarEliminarComponent = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 80ms ease, background-color 80ms ease',
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = '#dc2626';
