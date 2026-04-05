@@ -1,7 +1,23 @@
-import { useState, useEffect, useCallback, useMemo, createContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext, useRef, useContext } from 'react';
 import { supabase } from './supabase';
 import './index.css';
-import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3, Trash2 } from 'lucide-react';
+import { Truck, Package, Plus, MapPin, TrendingUp, AlertCircle, CheckCircle, Grid3x3, Trash2, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // 🔗 ESTO ES LO QUE TE FALTA PARA CONECTAR TODO:
 import { useChoferes } from './hooks/useChoferes';
@@ -348,6 +364,25 @@ function PantallaRecorridos() {
     inputFocusBg: theme === 'light' ? '#ffffff' : '#1a2540'
   };
 
+  // DND SENSORS
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event, zona) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setColectas(prev => {
+      const zonasItems = prev.filter(c => c.zona === zona);
+      const otherItems = prev.filter(c => c.zona !== zona);
+      const oldIndex = zonasItems.findIndex(c => c.id === active.id);
+      const newIndex = zonasItems.findIndex(c => c.id === over.id);
+      const reordered = arrayMove(zonasItems, oldIndex, newIndex);
+      return [...otherItems, ...reordered];
+    });
+  };
+
   // 1. ABRIR MODAL PARA AGREGAR FILA
   const abrirModal = (nombreZona) => {
     setSelectedZona(nombreZona);
@@ -424,6 +459,20 @@ function PantallaRecorridos() {
       .eq('id', id);
 
     if (error) console.error("Error al sincronizar:", error.message);
+  };
+
+  // 4. FUNCIÓN PARA GUARDAR LOCALIDAD EDITADA INLINE
+  const guardarLocalidad = async (id, nuevoValor) => {
+    if (!nuevoValor || !nuevoValor.trim()) return;
+    const valorLimpio = nuevoValor.trim().toUpperCase();
+    setColectas(prev => prev.map(item =>
+      item.id === id ? { ...item, localidad: valorLimpio } : item
+    ));
+    const { error } = await supabase
+      .from('Recorridos')
+      .update({ localidad: valorLimpio })
+      .eq('id', id);
+    if (error) console.error('Error al actualizar localidad:', error.message);
   };
 
   // FUNCIÓN PARA OBTENER COLOR DE PORCENTAJE
@@ -559,6 +608,7 @@ function PantallaRecorridos() {
                         backgroundColor: colors.headerBg,
                         borderBottom: `1px solid ${colors.border}`
                       }}>
+                        <th style={{ padding: '12px 8px 12px 12px', width: '32px' }}></th>
                         <th style={{
                           padding: '12px 16px',
                           textAlign: 'left',
@@ -650,6 +700,15 @@ function PantallaRecorridos() {
                         </th>
                       </tr>
                     </thead>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(e) => handleDragEnd(e, zona)}
+                    >
+                    <SortableContext
+                      items={datosZona.map(i => i.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
                     <tbody>
                       {datosZona.map((item, idx) => {
                         const total = (item.pqteDia || 0) + (item.porFuera || 0);
@@ -659,166 +718,24 @@ function PantallaRecorridos() {
                         const porcentajeStr = porcentaje + '%';
 
                         return (
-                          <tr
+                          <SortableFilaLocalidad
                             key={item.id}
-                            style={{
-                              borderBottom: `1px solid ${colors.border}`,
-                              backgroundColor: idx % 2 === 0 ? colors.cardBg : colors.rowAlt,
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = colors.rowHover;
-                              e.currentTarget.style.boxShadow = `inset 0 0 8px ${theme === 'light' ? 'rgba(0,0,0,0.02)' : 'rgba(100, 181, 246, 0.08)'}`;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = idx % 2 === 0 ? colors.cardBg : colors.rowAlt;
-                              e.currentTarget.style.boxShadow = 'none';
-                            }}
-                          >
-                            <td style={{ padding: '12px 16px', fontWeight: '500', color: colors.textPrimary }}>
-                              {item.localidad}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              <input
-                                type="number"
-                                value={item.idChofer || ''}
-                                onChange={(e) => guardarCambioBD(item.id, 'idChofer', e.target.value)}
-                                style={{
-                                  width: '50px',
-                                  padding: '6px 8px',
-                                  border: `1px solid ${colors.borderLight}`,
-                                  borderRadius: '6px',
-                                  backgroundColor: colors.inputBg,
-                                  color: colors.textPrimary,
-                                  fontSize: '13px',
-                                  fontWeight: '500',
-                                  outline: 'none',
-                                  textAlign: 'center',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onFocus={(e) => {
-                                  e.target.style.borderColor = zoneColor;
-                                  e.target.style.backgroundColor = colors.inputFocusBg;
-                                  e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`;
-                                }}
-                                onBlur={(e) => {
-                                  e.target.style.borderColor = colors.borderLight;
-                                  e.target.style.backgroundColor = colors.inputBg;
-                                  e.target.style.boxShadow = 'none';
-                                }}
-                              />
-                            </td>
-                            <td style={{ 
-                              padding: '12px 16px', 
-                              textAlign: 'center',
-                              fontWeight: '500',
-                              color: colors.textSecondary
-                            }}>
-                              {obtenerNombreChofer(item.idChofer)}
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              <input
-                                type="number"
-                                value={item.pqteDia || ''}
-                                onChange={(e) => guardarCambioBD(item.id, 'pqteDia', e.target.value)}
-                                style={{
-                                  width: '60px',
-                                  padding: '6px 8px',
-                                  border: `1px solid ${colors.borderLight}`,
-                                  borderRadius: '6px',
-                                  backgroundColor: colors.inputBg,
-                                  color: colors.textPrimary,
-                                  fontSize: '13px',
-                                  fontWeight: '500',
-                                  outline: 'none',
-                                  textAlign: 'center',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onFocus={(e) => {
-                                  e.target.style.borderColor = zoneColor;
-                                  e.target.style.backgroundColor = colors.inputFocusBg;
-                                  e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`;
-                                }}
-                                onBlur={(e) => {
-                                  e.target.style.borderColor = colors.borderLight;
-                                  e.target.style.backgroundColor = colors.inputBg;
-                                  e.target.style.boxShadow = 'none';
-                                }}
-                              />
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              <input
-                                type="number"
-                                value={item.porFuera || ''}
-                                onChange={(e) => guardarCambioBD(item.id, 'porFuera', e.target.value)}
-                                style={{
-                                  width: '60px',
-                                  padding: '6px 8px',
-                                  border: `1px solid ${colors.borderLight}`,
-                                  borderRadius: '6px',
-                                  backgroundColor: colors.inputBg,
-                                  color: colors.textPrimary,
-                                  fontSize: '13px',
-                                  fontWeight: '500',
-                                  outline: 'none',
-                                  textAlign: 'center',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onFocus={(e) => {
-                                  e.target.style.borderColor = zoneColor;
-                                  e.target.style.backgroundColor = colors.inputFocusBg;
-                                  e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`;
-                                }}
-                                onBlur={(e) => {
-                                  e.target.style.borderColor = colors.borderLight;
-                                  e.target.style.backgroundColor = colors.inputBg;
-                                  e.target.style.boxShadow = 'none';
-                                }}
-                              />
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                              <input
-                                type="number"
-                                value={item.entregados || ''}
-                                onChange={(e) => guardarCambioBD(item.id, 'entregados', e.target.value)}
-                                style={{
-                                  width: '60px',
-                                  padding: '6px 8px',
-                                  border: `1px solid ${colors.borderLight}`,
-                                  borderRadius: '6px',
-                                  backgroundColor: colors.inputBg,
-                                  color: colors.textPrimary,
-                                  fontSize: '13px',
-                                  fontWeight: '500',
-                                  outline: 'none',
-                                  textAlign: 'center',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onFocus={(e) => {
-                                  e.target.style.borderColor = zoneColor;
-                                  e.target.style.backgroundColor = colors.inputFocusBg;
-                                  e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`;
-                                }}
-                                onBlur={(e) => {
-                                  e.target.style.borderColor = colors.borderLight;
-                                  e.target.style.backgroundColor = colors.inputBg;
-                                  e.target.style.boxShadow = 'none';
-                                }}
-                              />
-                            </td>
-                            <td style={{
-                              padding: '12px 16px',
-                              textAlign: 'center',
-                              fontWeight: '700',
-                              color: getPercentageColor(porcentajeStr),
-                              fontSize: '14px'
-                            }}>
-                              {porcentajeStr}
-                            </td>
-                          </tr>
+                            item={item}
+                            idx={idx}
+                            colors={colors}
+                            zoneColor={zoneColor}
+                            theme={theme}
+                            guardarCambioBD={guardarCambioBD}
+                            guardarLocalidad={guardarLocalidad}
+                            obtenerNombreChofer={obtenerNombreChofer}
+                            getPercentageColor={getPercentageColor}
+                            porcentajeStr={porcentajeStr}
+                          />
                         );
                       })}
                     </tbody>
+                    </SortableContext>
+                    </DndContext>
                   </table>
                 ) : (
                   /* EMPTY STATE */
@@ -1180,26 +1097,6 @@ function PantallaClientes() {
     }
   };
 
-  const handleEliminarCliente = async (clienteId) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('Clientes')
-        .delete()
-        .eq('id', clienteId);
-
-      if (error) throw error;
-
-      setClientes(prev => prev.filter(c => c.id !== clienteId));
-      mostrarToast('✅ Cliente eliminado correctamente', 'success');
-    } catch (err) {
-      console.error('Error al eliminar cliente:', err);
-      mostrarToast(`❌ Error al eliminar cliente: ${err.message}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEliminarClienteConfirm = async () => {
     if (!itemAEliminar) return;
@@ -1236,13 +1133,20 @@ function PantallaClientes() {
 
   return (
     <div className="w-full min-h-screen p-6 bg-slate-50 dark:bg-slate-950">
-      {/* MODAL */}
+      {/* MODALES */}
       <ModalAgregarCliente
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleGuardarCliente}
         choferes={choferes}
         tabActiva={tabActiva}
+      />
+
+      <ModalConfirmarEliminar
+        isOpen={isConfirmDeleteOpen}
+        nombre={itemAEliminar?.cliente || 'este cliente'}
+        onConfirm={handleEliminarClienteConfirm}
+        onCancel={handleEliminarClienteCancel}
       />
 
       {/* HEADER */}
@@ -1352,6 +1256,223 @@ function Toast({ mensaje, tipo }) {
 
 // ════════════════════════════════════════════════════════════════
 
-import { useContext } from 'react';
+
+// ════════════════════════════════════════════════════════════════
+// COMPONENTE: Celda de Localidad con Inline Editing
+// ════════════════════════════════════════════════════════════════
+function CeldaLocalidadEditable({ item, colors, zoneColor, onSave }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(item.localidad);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setValor(item.localidad);
+  }, [item.localidad]);
+
+  const confirmar = () => {
+    setEditando(false);
+    const limpio = valor.trim();
+    if (limpio && limpio !== item.localidad) {
+      onSave(limpio);
+    } else {
+      setValor(item.localidad);
+    }
+  };
+
+  if (editando) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={valor}
+        autoFocus
+        onChange={(e) => setValor(e.target.value.toUpperCase())}
+        onBlur={confirmar}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.target.blur(); }
+          if (e.key === 'Escape') { setValor(item.localidad); setEditando(false); }
+        }}
+        style={{
+          width: '100%',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          border: `2px solid ${zoneColor}`,
+          backgroundColor: colors.inputFocusBg,
+          color: colors.textPrimary,
+          fontSize: '13px',
+          fontWeight: '600',
+          outline: 'none',
+          boxShadow: `0 0 0 3px ${zoneColor}25`,
+          transition: 'all 0.2s ease',
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditando(true)}
+      title="Clic para editar la localidad"
+      style={{
+        cursor: 'text',
+        color: colors.textPrimary,
+        fontWeight: '500',
+        borderBottom: `1px dashed ${zoneColor}80`,
+        paddingBottom: '1px',
+        transition: 'all 0.15s ease',
+        display: 'inline-block',
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.borderBottomColor = zoneColor;
+        e.target.style.color = zoneColor;
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.borderBottomColor = `${zoneColor}80`;
+        e.target.style.color = colors.textPrimary;
+      }}
+    >
+      {item.localidad}
+    </span>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// COMPONENTE: Fila Sortable para Drag & Drop
+// ════════════════════════════════════════════════════════════════
+function SortableFilaLocalidad({
+  item, idx, colors, zoneColor, theme,
+  guardarCambioBD, guardarLocalidad,
+  obtenerNombreChofer, getPercentageColor, porcentajeStr
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || 'transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    borderBottom: `1px solid ${colors.border}`,
+    backgroundColor: isDragging
+      ? (theme === 'light' ? '#dbeafe' : '#1e3a5f')
+      : (idx % 2 === 0 ? colors.cardBg : colors.rowAlt),
+    boxShadow: isDragging
+      ? `0 8px 24px rgba(0,0,0,0.18), 0 0 0 2px ${zoneColor}`
+      : 'none',
+    opacity: isDragging ? 0.95 : 1,
+    zIndex: isDragging ? 999 : 'auto',
+    position: 'relative',
+    willChange: 'transform',
+  };
+
+  const inputStyle = {
+    padding: '6px 8px',
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: '6px',
+    backgroundColor: colors.inputBg,
+    color: colors.textPrimary,
+    fontSize: '13px',
+    fontWeight: '500',
+    outline: 'none',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style}>
+      {/* HANDLE DE DRAG */}
+      <td style={{ padding: '12px 8px 12px 12px', width: '32px' }}>
+        <span
+          {...attributes}
+          {...listeners}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            cursor: 'grab',
+            color: colors.textSecondary,
+            opacity: 0.5,
+            touchAction: 'none',
+          }}
+          title="Arrastrá para reordenar"
+        >
+          <GripVertical size={14} />
+        </span>
+      </td>
+
+      {/* LOCALIDAD EDITABLE */}
+      <td style={{ padding: '12px 16px', fontWeight: '500', color: colors.textPrimary }}>
+        <CeldaLocalidadEditable
+          item={item}
+          colors={colors}
+          zoneColor={zoneColor}
+          onSave={(nuevoValor) => guardarLocalidad(item.id, nuevoValor)}
+        />
+      </td>
+
+      {/* ID CHOFER */}
+      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+        <input
+          type="number"
+          value={item.idChofer || ''}
+          onChange={(e) => guardarCambioBD(item.id, 'idChofer', e.target.value)}
+          style={{ ...inputStyle, width: '50px' }}
+          onFocus={(e) => { e.target.style.borderColor = zoneColor; e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`; e.target.style.backgroundColor = colors.inputFocusBg; }}
+          onBlur={(e) => { e.target.style.borderColor = colors.borderLight; e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = colors.inputBg; }}
+        />
+      </td>
+
+      {/* NOMBRE CHOFER */}
+      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '500', color: colors.textSecondary }}>
+        {obtenerNombreChofer(item.idChofer)}
+      </td>
+
+      {/* PQTE DÍA */}
+      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+        <input
+          type="number"
+          value={item.pqteDia || ''}
+          onChange={(e) => guardarCambioBD(item.id, 'pqteDia', e.target.value)}
+          style={{ ...inputStyle, width: '60px' }}
+          onFocus={(e) => { e.target.style.borderColor = zoneColor; e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`; e.target.style.backgroundColor = colors.inputFocusBg; }}
+          onBlur={(e) => { e.target.style.borderColor = colors.borderLight; e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = colors.inputBg; }}
+        />
+      </td>
+
+      {/* POR FUERA */}
+      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+        <input
+          type="number"
+          value={item.porFuera || ''}
+          onChange={(e) => guardarCambioBD(item.id, 'porFuera', e.target.value)}
+          style={{ ...inputStyle, width: '60px' }}
+          onFocus={(e) => { e.target.style.borderColor = zoneColor; e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`; e.target.style.backgroundColor = colors.inputFocusBg; }}
+          onBlur={(e) => { e.target.style.borderColor = colors.borderLight; e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = colors.inputBg; }}
+        />
+      </td>
+
+      {/* ENTREGADOS */}
+      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+        <input
+          type="number"
+          value={item.entregados || ''}
+          onChange={(e) => guardarCambioBD(item.id, 'entregados', e.target.value)}
+          style={{ ...inputStyle, width: '60px' }}
+          onFocus={(e) => { e.target.style.borderColor = zoneColor; e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`; e.target.style.backgroundColor = colors.inputFocusBg; }}
+          onBlur={(e) => { e.target.style.borderColor = colors.borderLight; e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = colors.inputBg; }}
+        />
+      </td>
+
+      {/* % DÍA */}
+      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '700', color: getPercentageColor(porcentajeStr), fontSize: '14px' }}>
+        {porcentajeStr}
+      </td>
+    </tr>
+  );
+}
+
 
 export default App;
