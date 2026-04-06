@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
+import { fetchChoferesOrdered } from '../utils/supabaseOrderedLists';
 
 /**
  * Custom Hook para manejar toda la lógica de Choferes
@@ -17,32 +18,29 @@ export function useChoferes() {
   });
 
   // ─── CARGAR CHOFERES ───────────────────────────────────
+  const recargarChoferes = useCallback(async () => {
+    const { data, error: err } = await fetchChoferesOrdered(supabase);
+    if (!err && data) setChoferes(data);
+  }, []);
+
   useEffect(() => {
     cargarChoferes();
 
-    // Suscripción a cambios en tiempo real
-    const subscription = supabase
-      .channel('public:Choferes')
-      .on('postgres_changes',
+    const channel = supabase
+      .channel('hooks:Choferes:ordenado')
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'Choferes' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setChoferes(prev => [payload.new, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setChoferes(prev =>
-              prev.map(c => c.id === payload.new.id ? payload.new : c)
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setChoferes(prev => prev.filter(c => c.id !== payload.old.id));
-          }
+        () => {
+          void recargarChoferes();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [recargarChoferes]);
 
   // ─── FILTRAR CHOFERES ──────────────────────────────────
   useEffect(() => {
@@ -54,10 +52,7 @@ export function useChoferes() {
       setLoading(true);
       setError(null);
 
-      const { data, error: err } = await supabase
-        .from('Choferes')
-        .select('*')
-        .order('nombre', { ascending: true });
+      const { data, error: err } = await fetchChoferesOrdered(supabase);
 
       if (err) throw err;
       setChoferes(data || []);
