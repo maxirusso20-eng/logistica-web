@@ -19,9 +19,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// 🔗 ESTO ES LO QUE TE FALTA PARA CONECTAR TODO:
-import { useChoferes } from './hooks/useChoferes';
-import { useColectas } from './hooks/useColectas';
 import { useValidaciones, Formateo } from './hooks/useValidaciones';
 import { ModalAgregar } from './components/ModalAgregar';
 import { Header } from './components/Header';
@@ -30,6 +27,17 @@ import { ModalAgregarChofer } from './components/ModalAgregarChofer';
 import { ModalConfirmarEliminar } from './components/ModalConfirmarEliminar';
 import { ModalAgregarCliente } from './components/ModalAgregarCliente';
 import { TarjetaChofer } from './components/TarjetaChofer';
+import {
+  fetchChoferesOrdered,
+  fetchRecorridosOrdered,
+  fetchClientesOrdered,
+  mergeColectaOrdenado,
+  nextOrdenEnZona,
+  sortChoferesRows,
+  sortClientesRows,
+  sortRecorridosRowsCanonical,
+  updateRecorridosOrdenBatch,
+} from './utils/supabaseOrderedLists';
 
 // ────────────────────────────────────────────────────────────────────────
 // CONTEXTO GLOBAL
@@ -68,13 +76,32 @@ function App() {
         
         setChoferes(choferesData || []);
 
-        // Cargar Colectas — el orden lo dicta Supabase (columna `orden`)
+        // Cargar Colectas
         const { data: colectasData } = await supabase
           .from('Recorridos')
           .select('*')
-          .order('orden', { ascending: true });
+          .order('localidad', { ascending: true });
 
-        setColectas(colectasData || []);
+        // Restaurar orden guardado por zona desde localStorage
+        const colectasRaw = colectasData || [];
+        const ZONAS_KEYS = ['ZONA OESTE', 'ZONA SUR', 'ZONA NORTE', 'CABA'];
+        let colectasOrdenadas = [...colectasRaw];
+        ZONAS_KEYS.forEach(zona => {
+          const saved = localStorage.getItem(`orden_zona_${zona}`);
+          if (!saved) return;
+          try {
+            const ids = JSON.parse(saved); // [id, id, id, ...]
+            const deEstaZona = colectasRaw.filter(c => c.zona === zona);
+            const otras = colectasOrdenadas.filter(c => c.zona !== zona);
+            // Reordenar según ids guardados; los que no estén en ids van al final
+            const reordenados = [
+              ...ids.map(id => deEstaZona.find(c => c.id === id)).filter(Boolean),
+              ...deEstaZona.filter(c => !ids.includes(c.id))
+            ];
+            colectasOrdenadas = [...otras, ...reordenados];
+          } catch {}
+        });
+        setColectas(colectasOrdenadas);
 
         // Cargar Clientes
         const { data: clientesData } = await supabase
@@ -93,30 +120,38 @@ function App() {
       }
     };
 
+    const recargarChoferes = async () => {
+      const { data, error } = await fetchChoferesOrdered(supabase);
+      if (!error && data) setChoferes(data);
+    };
+
+    const recargarRecorridos = async () => {
+      const { data, error } = await fetchRecorridosOrdered(supabase);
+      if (!error && data) setColectas(sortRecorridosRowsCanonical(data));
+    };
+
+    const recargarClientes = async () => {
+      const { data, error } = await fetchClientesOrdered(supabase);
+      if (!error && data) setClientes(data);
+    };
+
     cargarDatos();
 
-    // Suscribirse a cambios en tiempo real
-    const subscription = supabase
-      .channel('public:Choferes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'Choferes' },
-        (payload) => {
-          console.log('🔄 Cambio en Choferes:', payload);
-          if (payload.eventType === 'INSERT') {
-            setChoferes(prev => [...prev, payload.new]);
-          } else if (payload.eventType === 'UPDATE') {
-            setChoferes(prev => 
-              prev.map(c => c.id === payload.new.id ? payload.new : c)
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setChoferes(prev => prev.filter(c => c.id !== payload.old.id));
-          }
-        }
-      )
+    const channel = supabase
+      .channel('app-sync-listas-ordenadas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Choferes' }, () => {
+        void recargarChoferes();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Recorridos' }, () => {
+        void recargarRecorridos();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Clientes' }, () => {
+        void recargarClientes();
+      })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -158,7 +193,9 @@ function App() {
           .select();
         
         if (error) throw error;
-        setChoferes(prev => [data[0], ...prev]);
+        setChoferes((prev) =>
+          sortChoferesRows([...prev.filter((c) => c.id !== data[0].id), data[0]])
+        );
         mostrarToast('✓ Chofer registrado', 'success');
       }
     } catch (err) {
@@ -196,13 +233,21 @@ function App() {
         if (error) throw error;
         mostrarToast('✓ Colecta actualizada', 'success');
       } else {
+        const zona = colectaData.zona;
+        const fila = {
+          ...colectaData,
+          orden:
+            zona != null && zona !== ''
+              ? nextOrdenEnZona(colectas, zona)
+              : (colectaData.orden ?? 0),
+        };
         const { data, error } = await supabase
           .from('Recorridos')
-          .insert([colectaData])
+          .insert([fila])
           .select();
         
         if (error) throw error;
-        setColectas(prev => [data[0], ...prev]);
+        setColectas((prev) => mergeColectaOrdenado(prev, data[0]));
         mostrarToast('✓ Colecta registrada', 'success');
       }
     } catch (err) {
@@ -377,12 +422,19 @@ function PantallaRecorridos() {
   const handleDragEnd = (event, zona) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    setColectas(prev => {
-      const zonasItems = prev.filter(c => c.zona === zona);
-      const otherItems = prev.filter(c => c.zona !== zona);
-      const oldIndex = zonasItems.findIndex(c => c.id === active.id);
-      const newIndex = zonasItems.findIndex(c => c.id === over.id);
+
+    let updates = [];
+
+    setColectas((prev) => {
+      const zonasItems = prev.filter((c) => c.zona === zona);
+      const otherItems = prev.filter((c) => c.zona !== zona);
+      const oldIndex = zonasItems.findIndex((c) => c.id === active.id);
+      const newIndex = zonasItems.findIndex((c) => c.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+
       const reordered = arrayMove(zonasItems, oldIndex, newIndex);
+      // 💾 Persistir orden en localStorage
+      localStorage.setItem(`orden_zona_${zona}`, JSON.stringify(reordered.map(c => c.id)));
       return [...otherItems, ...reordered];
     });
   };
@@ -405,7 +457,8 @@ function PantallaRecorridos() {
         idChofer: 0,
         pqteDia: 0,
         porFuera: 0,
-        entregados: 0
+        entregados: 0,
+        orden: nextOrdenEnZona(colectas, selectedZona),
       };
 
       console.log('📤 Intentando insertar nueva ruta:', nuevaRuta);
@@ -438,7 +491,7 @@ function PantallaRecorridos() {
       // ✅ SOLO actualizar state si Supabase devolvió datos exitosamente
       if (data && data[0]) {
         console.log('✅ Inserción exitosa (status: ' + status + '):', data);
-        setColectas(prev => [...prev, data[0]]);
+        setColectas((prev) => mergeColectaOrdenado(prev, data[0]));
         mostrarToast(`✅ ${localidad} agregada correctamente a ${selectedZona}`, 'success');
         setIsModalOpen(false);
         setSelectedZona(null);
@@ -453,9 +506,11 @@ function PantallaRecorridos() {
   // 3. FUNCIÓN PARA GUARDAR CAMBIOS AUTOMÁTICAMENTE
   const guardarCambioBD = async (id, campo, valor) => {
     const num = parseInt(valor) || 0;
-    setColectas(prev => prev.map(item => 
-      item.id === id ? { ...item, [campo]: num } : item
-    ));
+    setColectas((prev) =>
+      sortRecorridosRowsCanonical(
+        prev.map((item) => (item.id === id ? { ...item, [campo]: num } : item))
+      )
+    );
 
     const { error } = await supabase
       .from('Recorridos')
@@ -469,9 +524,13 @@ function PantallaRecorridos() {
   const guardarLocalidad = async (id, nuevoValor) => {
     if (!nuevoValor || !nuevoValor.trim()) return;
     const valorLimpio = nuevoValor.trim().toUpperCase();
-    setColectas(prev => prev.map(item =>
-      item.id === id ? { ...item, localidad: valorLimpio } : item
-    ));
+    setColectas((prev) =>
+      sortRecorridosRowsCanonical(
+        prev.map((item) =>
+          item.id === id ? { ...item, localidad: valorLimpio } : item
+        )
+      )
+    );
     const { error } = await supabase
       .from('Recorridos')
       .update({ localidad: valorLimpio })
@@ -1077,11 +1136,11 @@ function PantallaClientes() {
       const { data, error } = await supabase
         .from('Clientes')
         .insert([formData])
-        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
+        .select('id, cliente, chofer, horario, direccion, tipo_dia, Choferes(celular)');
       
       if (error) throw error;
       
-      setClientes(prev => [data[0], ...prev]);
+      setClientes((prev) => sortClientesRows([...prev.filter((c) => c.id !== data[0].id), data[0]]));
       setIsModalOpen(false);
       mostrarToast('✅ Cliente agregado correctamente', 'success');
     } catch (err) {
@@ -1098,12 +1157,12 @@ function PantallaClientes() {
         .from('Clientes')
         .update({ chofer: nuevoChofer })
         .eq('id', clienteId)
-        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
+        .select('id, cliente, chofer, horario, direccion, tipo_dia, Choferes(celular)');
       
       if (error) throw error;
       
-      setClientes(prev => 
-        prev.map(c => c.id === clienteId ? data[0] : c)
+      setClientes((prev) =>
+        sortClientesRows(prev.map((c) => (c.id === clienteId ? data[0] : c)))
       );
       mostrarToast('✅ Chofer actualizado', 'success');
     } catch (err) {

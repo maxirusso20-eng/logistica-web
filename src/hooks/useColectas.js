@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
+import { fetchRecorridosOrdered } from '../utils/supabaseOrderedLists';
 
 /**
  * Custom Hook para manejar Colectas/Recorridos
@@ -17,32 +18,29 @@ export function useColectas() {
   });
 
   // ─── CARGAR COLECTAS ───────────────────────────────────
+  const recargarColectas = useCallback(async () => {
+    const { data, error: err } = await fetchRecorridosOrdered(supabase);
+    if (!err && data) setColectas(data);
+  }, []);
+
   useEffect(() => {
     cargarColectas();
 
-    // Suscripción a cambios en tiempo real
-    const subscription = supabase
-      .channel('public:Recorridos')
-      .on('postgres_changes',
+    const channel = supabase
+      .channel('hooks:Recorridos:ordenado')
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'Recorridos' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setColectas(prev => [payload.new, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setColectas(prev =>
-              prev.map(c => c.id === payload.new.id ? payload.new : c)
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setColectas(prev => prev.filter(c => c.id !== payload.old.id));
-          }
+        () => {
+          void recargarColectas();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [recargarColectas]);
 
   // ─── FILTRAR COLECTAS ──────────────────────────────────
   useEffect(() => {
@@ -54,10 +52,7 @@ export function useColectas() {
       setLoading(true);
       setError(null);
 
-      const { data, error: err } = await supabase
-        .from('Recorridos')
-        .select('*')
-        .order('localidad', { ascending: true });
+      const { data, error: err } = await fetchRecorridosOrdered(supabase);
 
       if (err) throw err;
       setColectas(data || []);
