@@ -68,32 +68,13 @@ function App() {
         
         setChoferes(choferesData || []);
 
-        // Cargar Colectas
+        // Cargar Colectas — el orden lo dicta Supabase (columna `orden`)
         const { data: colectasData } = await supabase
           .from('Recorridos')
           .select('*')
-          .order('localidad', { ascending: true });
+          .order('orden', { ascending: true });
 
-        // Restaurar orden guardado por zona desde localStorage
-        const colectasRaw = colectasData || [];
-        const ZONAS_KEYS = ['ZONA OESTE', 'ZONA SUR', 'ZONA NORTE', 'CABA'];
-        let colectasOrdenadas = [...colectasRaw];
-        ZONAS_KEYS.forEach(zona => {
-          const saved = localStorage.getItem(`orden_zona_${zona}`);
-          if (!saved) return;
-          try {
-            const ids = JSON.parse(saved); // [id, id, id, ...]
-            const deEstaZona = colectasRaw.filter(c => c.zona === zona);
-            const otras = colectasOrdenadas.filter(c => c.zona !== zona);
-            // Reordenar según ids guardados; los que no estén en ids van al final
-            const reordenados = [
-              ...ids.map(id => deEstaZona.find(c => c.id === id)).filter(Boolean),
-              ...deEstaZona.filter(c => !ids.includes(c.id))
-            ];
-            colectasOrdenadas = [...otras, ...reordenados];
-          } catch {}
-        });
-        setColectas(colectasOrdenadas);
+        setColectas(colectasData || []);
 
         // Cargar Clientes
         const { data: clientesData } = await supabase
@@ -402,8 +383,6 @@ function PantallaRecorridos() {
       const oldIndex = zonasItems.findIndex(c => c.id === active.id);
       const newIndex = zonasItems.findIndex(c => c.id === over.id);
       const reordered = arrayMove(zonasItems, oldIndex, newIndex);
-      // 💾 Persistir orden en localStorage
-      localStorage.setItem(`orden_zona_${zona}`, JSON.stringify(reordered.map(c => c.id)));
       return [...otherItems, ...reordered];
     });
   };
@@ -830,10 +809,11 @@ function PantallaChoferes() {
   const [choferAEliminar, setChoferAEliminar] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroZona, setFiltroZona] = useState('Todas');
+  const [ordenId, setOrdenId] = useState('asc'); // 'asc' = menor a mayor, 'desc' = mayor a menor
   const [loading, setLoading] = useState(false);
 
   const choferesFiltrados = useMemo(() => {
-    return choferes.filter(chofer => {
+    const filtrados = choferes.filter(chofer => {
       const matchBusqueda = (chofer.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (chofer.tel || '').includes(searchTerm) ||
                            (chofer.celular || '').includes(searchTerm) ||
@@ -841,7 +821,11 @@ function PantallaChoferes() {
       const matchZona = filtroZona === 'Todas' || (chofer.zona && chofer.zona.includes(filtroZona));
       return matchBusqueda && matchZona;
     });
-  }, [choferes, searchTerm, filtroZona]);
+    // Ordenar por ID según selección
+    return [...filtrados].sort((a, b) =>
+      ordenId === 'asc' ? a.id - b.id : b.id - a.id
+    );
+  }, [choferes, searchTerm, filtroZona, ordenId]);
 
   const handleGuardarChofer = useCallback(async (formData) => {
     setLoading(true);
@@ -984,6 +968,13 @@ function PantallaChoferes() {
               <option value="NORTE">NORTE</option>
               <option value="CABA">CABA</option>
             </select>
+            <button
+              onClick={() => setOrdenId(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="theme-input flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm cursor-pointer outline-none font-semibold transition-all duration-150 hover:opacity-80 whitespace-nowrap"
+              title={ordenId === 'asc' ? 'Ordenado: ID menor → mayor. Clic para invertir' : 'Ordenado: ID mayor → menor. Clic para invertir'}
+            >
+              {ordenId === 'asc' ? '↑ ID' : '↓ ID'}
+            </button>
           </div>
         </div>
 
