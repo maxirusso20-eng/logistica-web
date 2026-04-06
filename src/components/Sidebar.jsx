@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, UsersRound, CarFront, Route, Globe, Sun, Moon } from 'lucide-react';
+import { Menu, X, UsersRound, CarFront, Route, Globe, Sun, Moon, LayoutDashboard } from 'lucide-react';
 import '../styles/sidebar.css';
 
 export function Sidebar({ 
@@ -40,6 +40,7 @@ export function Sidebar({
   // Si estamos en móvil, mostrar antes de navItems
   
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clientes', label: 'Clientes', icon: UsersRound },
     { id: 'choferes', label: 'Choferes', icon: CarFront },
     { id: 'recorridos', label: 'Recorridos', icon: Route },

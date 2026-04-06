@@ -19,6 +19,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// 🔗 ESTO ES LO QUE TE FALTA PARA CONECTAR TODO:
+import { useChoferes } from './hooks/useChoferes';
+import { useColectas } from './hooks/useColectas';
 import { useValidaciones, Formateo } from './hooks/useValidaciones';
 import { ModalAgregar } from './components/ModalAgregar';
 import { Header } from './components/Header';
@@ -27,17 +30,6 @@ import { ModalAgregarChofer } from './components/ModalAgregarChofer';
 import { ModalConfirmarEliminar } from './components/ModalConfirmarEliminar';
 import { ModalAgregarCliente } from './components/ModalAgregarCliente';
 import { TarjetaChofer } from './components/TarjetaChofer';
-import {
-  fetchChoferesOrdered,
-  fetchRecorridosOrdered,
-  fetchClientesOrdered,
-  mergeColectaOrdenado,
-  nextOrdenEnZona,
-  sortChoferesRows,
-  sortClientesRows,
-  sortRecorridosRowsCanonical,
-  updateRecorridosOrdenBatch,
-} from './utils/supabaseOrderedLists';
 
 // ────────────────────────────────────────────────────────────────────────
 // CONTEXTO GLOBAL
@@ -50,7 +42,7 @@ function App() {
   const [colectas, setColectas] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState('recorridos');
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [toasts, setToasts] = useState([]);
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
@@ -76,32 +68,13 @@ function App() {
         
         setChoferes(choferesData || []);
 
-        // Cargar Colectas
+        // Cargar Colectas — el orden lo dicta Supabase (columna `orden`)
         const { data: colectasData } = await supabase
           .from('Recorridos')
           .select('*')
-          .order('localidad', { ascending: true });
+          .order('orden', { ascending: true });
 
-        // Restaurar orden guardado por zona desde localStorage
-        const colectasRaw = colectasData || [];
-        const ZONAS_KEYS = ['ZONA OESTE', 'ZONA SUR', 'ZONA NORTE', 'CABA'];
-        let colectasOrdenadas = [...colectasRaw];
-        ZONAS_KEYS.forEach(zona => {
-          const saved = localStorage.getItem(`orden_zona_${zona}`);
-          if (!saved) return;
-          try {
-            const ids = JSON.parse(saved); // [id, id, id, ...]
-            const deEstaZona = colectasRaw.filter(c => c.zona === zona);
-            const otras = colectasOrdenadas.filter(c => c.zona !== zona);
-            // Reordenar según ids guardados; los que no estén en ids van al final
-            const reordenados = [
-              ...ids.map(id => deEstaZona.find(c => c.id === id)).filter(Boolean),
-              ...deEstaZona.filter(c => !ids.includes(c.id))
-            ];
-            colectasOrdenadas = [...otras, ...reordenados];
-          } catch {}
-        });
-        setColectas(colectasOrdenadas);
+        setColectas(colectasData || []);
 
         // Cargar Clientes
         const { data: clientesData } = await supabase
@@ -120,38 +93,30 @@ function App() {
       }
     };
 
-    const recargarChoferes = async () => {
-      const { data, error } = await fetchChoferesOrdered(supabase);
-      if (!error && data) setChoferes(data);
-    };
-
-    const recargarRecorridos = async () => {
-      const { data, error } = await fetchRecorridosOrdered(supabase);
-      if (!error && data) setColectas(sortRecorridosRowsCanonical(data));
-    };
-
-    const recargarClientes = async () => {
-      const { data, error } = await fetchClientesOrdered(supabase);
-      if (!error && data) setClientes(data);
-    };
-
     cargarDatos();
 
-    const channel = supabase
-      .channel('app-sync-listas-ordenadas')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Choferes' }, () => {
-        void recargarChoferes();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Recorridos' }, () => {
-        void recargarRecorridos();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Clientes' }, () => {
-        void recargarClientes();
-      })
+    // Suscribirse a cambios en tiempo real
+    const subscription = supabase
+      .channel('public:Choferes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'Choferes' },
+        (payload) => {
+          console.log('🔄 Cambio en Choferes:', payload);
+          if (payload.eventType === 'INSERT') {
+            setChoferes(prev => [...prev, payload.new]);
+          } else if (payload.eventType === 'UPDATE') {
+            setChoferes(prev => 
+              prev.map(c => c.id === payload.new.id ? payload.new : c)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setChoferes(prev => prev.filter(c => c.id !== payload.old.id));
+          }
+        }
+      )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(subscription);
     };
   }, []);
 
@@ -193,9 +158,7 @@ function App() {
           .select();
         
         if (error) throw error;
-        setChoferes((prev) =>
-          sortChoferesRows([...prev.filter((c) => c.id !== data[0].id), data[0]])
-        );
+        setChoferes(prev => [data[0], ...prev]);
         mostrarToast('✓ Chofer registrado', 'success');
       }
     } catch (err) {
@@ -233,21 +196,13 @@ function App() {
         if (error) throw error;
         mostrarToast('✓ Colecta actualizada', 'success');
       } else {
-        const zona = colectaData.zona;
-        const fila = {
-          ...colectaData,
-          orden:
-            zona != null && zona !== ''
-              ? nextOrdenEnZona(colectas, zona)
-              : (colectaData.orden ?? 0),
-        };
         const { data, error } = await supabase
           .from('Recorridos')
-          .insert([fila])
+          .insert([colectaData])
           .select();
         
         if (error) throw error;
-        setColectas((prev) => mergeColectaOrdenado(prev, data[0]));
+        setColectas(prev => [data[0], ...prev]);
         mostrarToast('✓ Colecta registrada', 'success');
       }
     } catch (err) {
@@ -311,6 +266,21 @@ function App() {
   };
 
   // ─── CONTEXTO GLOBAL ───────────────────────────────────
+  const eliminarRecorrido = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('Recorridos')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      setColectas(prev => prev.filter(c => c.id !== id));
+      mostrarToast('✅ Recorrido eliminado', 'success');
+    } catch (err) {
+      console.error('Error eliminando recorrido:', err);
+      mostrarToast('❌ Error al eliminar recorrido', 'error');
+    }
+  };
+
   const contextValue = {
     choferes,
     setChoferes,
@@ -326,6 +296,7 @@ function App() {
     guardarChofer,
     eliminarChofer,
     guardarColecta,
+    eliminarRecorrido,
     mostrarToast,
     handleEliminarCliente,
     handleEliminarClienteConfirm,
@@ -348,7 +319,7 @@ function App() {
       <div className={`app theme-${theme}`}>
         {/* HEADER FIJO - NO SE MUEVE */}
         <Header 
-          onBrandClick={() => setCurrentPage('recorridos')}
+          onBrandClick={() => setCurrentPage('dashboard')}
           onMobileMenuClick={() => setIsSidebarMobileOpen(true)}
         />
         
@@ -364,6 +335,7 @@ function App() {
           />
           
           <main className="main-content">
+            {currentPage === 'dashboard' && <PantallaDashboard />}
             {currentPage === 'recorridos' && <PantallaRecorridos />}
             {currentPage === 'choferes' && <PantallaChoferes />}
             {currentPage === 'clientes' && <PantallaClientes />}
@@ -386,8 +358,232 @@ function App() {
 // COMPONENTES
 // ════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════
+// PANTALLA: Dashboard
+// ════════════════════════════════════════════════════════════════
+function PantallaDashboard() {
+  const { colectas, choferes, clientes, theme, setCurrentPage } = useContext(AppContext);
+
+  const totalPaquetes = colectas.reduce((s, c) => s + (c.pqteDia || 0) + (c.porFuera || 0), 0);
+  const totalEntregados = colectas.reduce((s, c) => s + (c.entregados || 0), 0);
+  const pctGlobal = totalPaquetes > 0 ? ((totalEntregados / totalPaquetes) * 100).toFixed(1) : 0;
+
+  const rutasSinChofer = colectas.filter(c => !c.idChofer || c.idChofer === 0);
+
+  const clientesSemana = clientes.filter(c => c.tipo_dia !== 'SÁBADOS');
+  const clientesSabados = clientes.filter(c => c.tipo_dia === 'SÁBADOS');
+
+  const ZONAS = ['ZONA OESTE', 'ZONA SUR', 'ZONA NORTE', 'CABA'];
+  const coloresZona = {
+    'ZONA OESTE': '#3b82f6',
+    'ZONA SUR': '#8b5cf6',
+    'ZONA NORTE': '#ec4899',
+    'CABA': '#06b6d4',
+  };
+
+  const cardBg = theme === 'light' ? '#ffffff' : '#1e293b';
+  const border = theme === 'light' ? '#e2e8f0' : '#334155';
+  const textPrimary = theme === 'light' ? '#1e293b' : '#f8fafc';
+  const textSecondary = theme === 'light' ? '#64748b' : '#94a3b8';
+  const pageBg = theme === 'light' ? '#f8fafc' : '#020617';
+
+  const getPctColor = (pct) => {
+    const n = parseFloat(pct);
+    if (n >= 100) return '#10b981';
+    if (n >= 80) return '#06b6d4';
+    if (n >= 50) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  return (
+    <div style={{ padding: '24px', backgroundColor: pageBg, minHeight: '100vh' }}>
+      {/* TÍTULO */}
+      <div style={{ marginBottom: '28px' }}>
+        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: textPrimary }}>
+          📊 Dashboard
+        </h1>
+        <p style={{ margin: '4px 0 0', fontSize: '14px', color: textSecondary }}>
+          Resumen del día — {new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
+      </div>
+
+      {/* CARDS GLOBALES */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+        {[
+          { label: 'Total paquetes', value: totalPaquetes, icon: '📦', color: '#3b82f6' },
+          { label: 'Entregados', value: totalEntregados, icon: '✅', color: '#10b981' },
+          { label: '% Global', value: pctGlobal + '%', icon: '📈', color: getPctColor(pctGlobal) },
+          { label: 'Choferes activos', value: choferes.length, icon: '🚚', color: '#8b5cf6' },
+          { label: 'Clientes semana', value: clientesSemana.length, icon: '📅', color: '#f59e0b' },
+          { label: 'Clientes sábados', value: clientesSabados.length, icon: '🗓️', color: '#06b6d4' },
+          { label: 'Rutas sin chofer', value: rutasSinChofer.length, icon: '⚠️', color: rutasSinChofer.length > 0 ? '#ef4444' : '#10b981' },
+        ].map(card => (
+          <div key={card.label} style={{
+            backgroundColor: cardBg,
+            borderRadius: '12px',
+            border: `1px solid ${border}`,
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            boxShadow: theme === 'light' ? '0 1px 3px rgba(0,0,0,0.07)' : '0 4px 12px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ fontSize: '24px' }}>{card.icon}</div>
+            <div style={{ fontSize: '28px', fontWeight: '800', color: card.color, lineHeight: 1 }}>
+              {card.value}
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {card.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* RESUMEN POR ZONA */}
+      <div style={{ marginBottom: '28px' }}>
+        <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: '700', color: textPrimary }}>
+          Resumen por zona
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+          {ZONAS.map(zona => {
+            const items = colectas.filter(c => c.zona === zona);
+            const pqtes = items.reduce((s, c) => s + (c.pqteDia || 0) + (c.porFuera || 0), 0);
+            const entregados = items.reduce((s, c) => s + (c.entregados || 0), 0);
+            const pct = pqtes > 0 ? ((entregados / pqtes) * 100).toFixed(1) : 0;
+            const color = coloresZona[zona];
+            const sinChofer = items.filter(c => !c.idChofer || c.idChofer === 0).length;
+            return (
+              <div
+                key={zona}
+                onClick={() => setCurrentPage('recorridos')}
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: '10px',
+                  border: `1px solid ${border}`,
+                  borderLeft: `4px solid ${color}`,
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 20px ${color}25`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color, textTransform: 'uppercase' }}>{zona}</span>
+                  <span style={{ fontSize: '20px', fontWeight: '800', color: getPctColor(pct) }}>{pct}%</span>
+                </div>
+                <div style={{ height: '6px', borderRadius: '3px', backgroundColor: theme === 'light' ? '#e2e8f0' : '#334155', marginBottom: '10px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, backgroundColor: getPctColor(pct), borderRadius: '3px', transition: 'width 0.5s ease' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textSecondary }}>
+                  <span>{entregados}/{pqtes} pqtes</span>
+                  <span>{items.length} rutas</span>
+                </div>
+                {sinChofer > 0 && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>
+                    ⚠️ {sinChofer} ruta{sinChofer > 1 ? 's' : ''} sin chofer
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CLIENTES POR TIPO DE DÍA */}
+      <div style={{ marginBottom: '28px' }}>
+        <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: '700', color: textPrimary }}>
+          Clientes por tipo de día
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+          {/* SEMANA */}
+          <div
+            onClick={() => setCurrentPage('clientes')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: '10px',
+              border: `1px solid ${border}`,
+              borderLeft: '4px solid #f59e0b',
+              padding: '16px',
+              cursor: 'pointer',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(245,158,11,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase' }}>📅 Lunes a Viernes</span>
+              <span style={{ fontSize: '26px', fontWeight: '800', color: '#f59e0b' }}>{clientesSemana.length}</span>
+            </div>
+            <div style={{ height: '6px', borderRadius: '3px', backgroundColor: theme === 'light' ? '#e2e8f0' : '#334155', marginBottom: '10px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: clientes.length > 0 ? `${(clientesSemana.length / clientes.length) * 100}%` : '0%', backgroundColor: '#f59e0b', borderRadius: '3px', transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ fontSize: '12px', color: textSecondary }}>
+              {clientes.length > 0 ? ((clientesSemana.length / clientes.length) * 100).toFixed(0) : 0}% del total de clientes
+            </div>
+          </div>
+
+          {/* SÁBADOS */}
+          <div
+            onClick={() => setCurrentPage('clientes')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: '10px',
+              border: `1px solid ${border}`,
+              borderLeft: '4px solid #06b6d4',
+              padding: '16px',
+              cursor: 'pointer',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(6,182,212,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#06b6d4', textTransform: 'uppercase' }}>🗓️ Sábados</span>
+              <span style={{ fontSize: '26px', fontWeight: '800', color: '#06b6d4' }}>{clientesSabados.length}</span>
+            </div>
+            <div style={{ height: '6px', borderRadius: '3px', backgroundColor: theme === 'light' ? '#e2e8f0' : '#334155', marginBottom: '10px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: clientes.length > 0 ? `${(clientesSabados.length / clientes.length) * 100}%` : '0%', backgroundColor: '#06b6d4', borderRadius: '3px', transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ fontSize: '12px', color: textSecondary }}>
+              {clientes.length > 0 ? ((clientesSabados.length / clientes.length) * 100).toFixed(0) : 0}% del total de clientes
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ALERTAS */}
+      {rutasSinChofer.length > 0 && (
+        <div style={{
+          backgroundColor: theme === 'light' ? '#fef2f2' : '#2d1515',
+          border: `1px solid #ef444440`,
+          borderLeft: '4px solid #ef4444',
+          borderRadius: '10px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+        }}>
+          <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#ef4444' }}>
+            ⚠️ {rutasSinChofer.length} ruta{rutasSinChofer.length > 1 ? 's' : ''} sin chofer asignado
+          </p>
+          <p style={{ margin: '4px 0 8px', fontSize: '13px', color: textSecondary }}>
+            {rutasSinChofer.map(r => r.localidad).join(', ')}
+          </p>
+          <button
+            onClick={() => setCurrentPage('recorridos')}
+            style={{ fontSize: '12px', fontWeight: '600', color: '#ef4444', background: 'none', border: '1px solid #ef444460', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer' }}
+          >
+            Ir a Recorridos →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PantallaRecorridos() {
-  const { colectas, setColectas, loading, mostrarToast, theme, choferes } = useContext(AppContext);
+  const { colectas, setColectas, loading, mostrarToast, theme, choferes, eliminarRecorrido } = useContext(AppContext);
+  const [recorridoAEliminar, setRecorridoAEliminar] = useState(null);
+  const [confirmDeleteRecorrido, setConfirmDeleteRecorrido] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedZona, setSelectedZona] = useState(null);
 
@@ -422,19 +618,12 @@ function PantallaRecorridos() {
   const handleDragEnd = (event, zona) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
-    let updates = [];
-
-    setColectas((prev) => {
-      const zonasItems = prev.filter((c) => c.zona === zona);
-      const otherItems = prev.filter((c) => c.zona !== zona);
-      const oldIndex = zonasItems.findIndex((c) => c.id === active.id);
-      const newIndex = zonasItems.findIndex((c) => c.id === over.id);
-      if (oldIndex < 0 || newIndex < 0) return prev;
-
+    setColectas(prev => {
+      const zonasItems = prev.filter(c => c.zona === zona);
+      const otherItems = prev.filter(c => c.zona !== zona);
+      const oldIndex = zonasItems.findIndex(c => c.id === active.id);
+      const newIndex = zonasItems.findIndex(c => c.id === over.id);
       const reordered = arrayMove(zonasItems, oldIndex, newIndex);
-      // 💾 Persistir orden en localStorage
-      localStorage.setItem(`orden_zona_${zona}`, JSON.stringify(reordered.map(c => c.id)));
       return [...otherItems, ...reordered];
     });
   };
@@ -457,8 +646,7 @@ function PantallaRecorridos() {
         idChofer: 0,
         pqteDia: 0,
         porFuera: 0,
-        entregados: 0,
-        orden: nextOrdenEnZona(colectas, selectedZona),
+        entregados: 0
       };
 
       console.log('📤 Intentando insertar nueva ruta:', nuevaRuta);
@@ -491,7 +679,7 @@ function PantallaRecorridos() {
       // ✅ SOLO actualizar state si Supabase devolvió datos exitosamente
       if (data && data[0]) {
         console.log('✅ Inserción exitosa (status: ' + status + '):', data);
-        setColectas((prev) => mergeColectaOrdenado(prev, data[0]));
+        setColectas(prev => [...prev, data[0]]);
         mostrarToast(`✅ ${localidad} agregada correctamente a ${selectedZona}`, 'success');
         setIsModalOpen(false);
         setSelectedZona(null);
@@ -506,11 +694,9 @@ function PantallaRecorridos() {
   // 3. FUNCIÓN PARA GUARDAR CAMBIOS AUTOMÁTICAMENTE
   const guardarCambioBD = async (id, campo, valor) => {
     const num = parseInt(valor) || 0;
-    setColectas((prev) =>
-      sortRecorridosRowsCanonical(
-        prev.map((item) => (item.id === id ? { ...item, [campo]: num } : item))
-      )
-    );
+    setColectas(prev => prev.map(item => 
+      item.id === id ? { ...item, [campo]: num } : item
+    ));
 
     const { error } = await supabase
       .from('Recorridos')
@@ -524,13 +710,9 @@ function PantallaRecorridos() {
   const guardarLocalidad = async (id, nuevoValor) => {
     if (!nuevoValor || !nuevoValor.trim()) return;
     const valorLimpio = nuevoValor.trim().toUpperCase();
-    setColectas((prev) =>
-      sortRecorridosRowsCanonical(
-        prev.map((item) =>
-          item.id === id ? { ...item, localidad: valorLimpio } : item
-        )
-      )
-    );
+    setColectas(prev => prev.map(item =>
+      item.id === id ? { ...item, localidad: valorLimpio } : item
+    ));
     const { error } = await supabase
       .from('Recorridos')
       .update({ localidad: valorLimpio })
@@ -695,17 +877,6 @@ function PantallaRecorridos() {
                           letterSpacing: '0.5px',
                           textTransform: 'uppercase'
                         }}>
-                          ID
-                        </th>
-                        <th style={{
-                          padding: '12px 16px',
-                          textAlign: 'center',
-                          color: '#cbd5e1',
-                          fontWeight: '600',
-                          fontSize: '12px',
-                          letterSpacing: '0.5px',
-                          textTransform: 'uppercase'
-                        }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
                             <Truck size={14} color={zoneColor} />
                             Nombre
@@ -734,7 +905,10 @@ function PantallaRecorridos() {
                           letterSpacing: '0.5px',
                           textTransform: 'uppercase'
                         }}>
-                          Por Fuera
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                            <Plus size={14} color={zoneColor} />
+                            Por Fuera
+                          </div>
                         </th>
                         <th style={{
                           padding: '12px 16px',
@@ -745,7 +919,10 @@ function PantallaRecorridos() {
                           letterSpacing: '0.5px',
                           textTransform: 'uppercase'
                         }}>
-                          Entregados
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                            <CheckCircle size={14} color={zoneColor} />
+                            Entregados
+                          </div>
                         </th>
                         <th style={{
                           padding: '12px 16px',
@@ -761,6 +938,7 @@ function PantallaRecorridos() {
                             % Día
                           </div>
                         </th>
+                        <th style={{ padding: '12px 8px', width: '36px' }}></th>
                       </tr>
                     </thead>
                     <DndContext
@@ -788,11 +966,13 @@ function PantallaRecorridos() {
                             colors={colors}
                             zoneColor={zoneColor}
                             theme={theme}
+                            choferes={choferes}
                             guardarCambioBD={guardarCambioBD}
                             guardarLocalidad={guardarLocalidad}
                             obtenerNombreChofer={obtenerNombreChofer}
                             getPercentageColor={getPercentageColor}
                             porcentajeStr={porcentajeStr}
+                            onEliminar={() => { setRecorridoAEliminar(item); setConfirmDeleteRecorrido(true); }}
                           />
                         );
                       })}
@@ -856,6 +1036,19 @@ function PantallaRecorridos() {
         onClose={() => setIsModalOpen(false)}
         onConfirm={confirmarAgregarLocalidad}
       />
+
+      {/* MODAL CONFIRMAR ELIMINAR RECORRIDO */}
+      <ModalConfirmarEliminar
+        isOpen={confirmDeleteRecorrido}
+        nombre={recorridoAEliminar?.localidad || 'este recorrido'}
+        onConfirm={() => {
+          if (recorridoAEliminar) eliminarRecorrido(recorridoAEliminar.id);
+          setConfirmDeleteRecorrido(false);
+          setRecorridoAEliminar(null);
+        }}
+        onCancel={() => { setConfirmDeleteRecorrido(false); setRecorridoAEliminar(null); }}
+        tema={theme === 'dark' ? 'dark' : 'light'}
+      />
     </div>
   );
 }
@@ -868,11 +1061,10 @@ function PantallaChoferes() {
   const [choferAEliminar, setChoferAEliminar] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroZona, setFiltroZona] = useState('Todas');
-  const [ordenId, setOrdenId] = useState('asc'); // 'asc' = menor a mayor, 'desc' = mayor a menor
   const [loading, setLoading] = useState(false);
 
   const choferesFiltrados = useMemo(() => {
-    const filtrados = choferes.filter(chofer => {
+    return choferes.filter(chofer => {
       const matchBusqueda = (chofer.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (chofer.tel || '').includes(searchTerm) ||
                            (chofer.celular || '').includes(searchTerm) ||
@@ -880,11 +1072,7 @@ function PantallaChoferes() {
       const matchZona = filtroZona === 'Todas' || (chofer.zona && chofer.zona.includes(filtroZona));
       return matchBusqueda && matchZona;
     });
-    // Ordenar por ID según selección
-    return [...filtrados].sort((a, b) =>
-      ordenId === 'asc' ? a.id - b.id : b.id - a.id
-    );
-  }, [choferes, searchTerm, filtroZona, ordenId]);
+  }, [choferes, searchTerm, filtroZona]);
 
   const handleGuardarChofer = useCallback(async (formData) => {
     setLoading(true);
@@ -1027,13 +1215,6 @@ function PantallaChoferes() {
               <option value="NORTE">NORTE</option>
               <option value="CABA">CABA</option>
             </select>
-            <button
-              onClick={() => setOrdenId(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="theme-input flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm cursor-pointer outline-none font-semibold transition-all duration-150 hover:opacity-80 whitespace-nowrap"
-              title={ordenId === 'asc' ? 'Ordenado: ID menor → mayor. Clic para invertir' : 'Ordenado: ID mayor → menor. Clic para invertir'}
-            >
-              {ordenId === 'asc' ? '↑ ID' : '↓ ID'}
-            </button>
           </div>
         </div>
 
@@ -1079,6 +1260,8 @@ function PantallaClientes() {
   const [tabActiva, setTabActiva] = useState('SEMANA'); // 'SEMANA' o 'SÁBADOS'
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [itemAEliminar, setItemAEliminar] = useState(null);
+  const [filtroChofer, setFiltroChofer] = useState('Todos');
+  const [busquedaCliente, setBusquedaCliente] = useState('');
 
   // Limpiar/refiltrar clientes al cambiar de pestaña
   useEffect(() => {
@@ -1113,22 +1296,22 @@ function PantallaClientes() {
     });
   }
 
-  // Filtro ultra-flexible para tipo_dia
+  // Filtro ultra-flexible para tipo_dia + chofer + búsqueda
   const clientesFiltrados = useMemo(() => {
     return ordenarPorHorario(
       clientes.filter(c => {
         const tipo = (c.tipo_dia?.trim().toUpperCase() || 'SEMANA');
-        if (tabActiva === 'SÁBADOS') {
-          // Mostrar solo los que sean SÁBADOS (sin importar espacios/caso)
-          return tipo === 'SÁBADOS';
-        } else if (tabActiva === 'SEMANA') {
-          // Mostrar los que sean SEMANA, null o string vacío
-          return tipo === 'SEMANA' || tipo === '' || c.tipo_dia == null;
-        }
-        return false;
+        const matchTipo = tabActiva === 'SÁBADOS'
+          ? tipo === 'SÁBADOS'
+          : (tipo === 'SEMANA' || tipo === '' || c.tipo_dia == null);
+        const matchChofer = filtroChofer === 'Todos' || (c.chofer || '') === filtroChofer;
+        const matchBusqueda = !busquedaCliente ||
+          (c.cliente || '').toLowerCase().includes(busquedaCliente.toLowerCase()) ||
+          (c.direccion || '').toLowerCase().includes(busquedaCliente.toLowerCase());
+        return matchTipo && matchChofer && matchBusqueda;
       })
     );
-  }, [clientes, tabActiva]);
+  }, [clientes, tabActiva, filtroChofer, busquedaCliente]);
 
   const handleGuardarCliente = async (formData) => {
     setLoading(true);
@@ -1136,11 +1319,11 @@ function PantallaClientes() {
       const { data, error } = await supabase
         .from('Clientes')
         .insert([formData])
-        .select('id, cliente, chofer, horario, direccion, tipo_dia, Choferes(celular)');
+        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
       
       if (error) throw error;
       
-      setClientes((prev) => sortClientesRows([...prev.filter((c) => c.id !== data[0].id), data[0]]));
+      setClientes(prev => [data[0], ...prev]);
       setIsModalOpen(false);
       mostrarToast('✅ Cliente agregado correctamente', 'success');
     } catch (err) {
@@ -1157,12 +1340,12 @@ function PantallaClientes() {
         .from('Clientes')
         .update({ chofer: nuevoChofer })
         .eq('id', clienteId)
-        .select('id, cliente, chofer, horario, direccion, tipo_dia, Choferes(celular)');
+        .select('id, cliente, chofer, horario, direccion, Choferes(celular)');
       
       if (error) throw error;
       
-      setClientes((prev) =>
-        sortClientesRows(prev.map((c) => (c.id === clienteId ? data[0] : c)))
+      setClientes(prev => 
+        prev.map(c => c.id === clienteId ? data[0] : c)
       );
       mostrarToast('✅ Chofer actualizado', 'success');
     } catch (err) {
@@ -1233,6 +1416,36 @@ function PantallaClientes() {
           <Plus size={18} />
           Agregar Cliente
         </button>
+      </div>
+
+      {/* FILTROS */}
+      <div className="flex gap-3 flex-wrap mb-4">
+        <input
+          type="text"
+          placeholder="Buscar cliente o dirección..."
+          value={busquedaCliente}
+          onChange={(e) => setBusquedaCliente(e.target.value)}
+          className="theme-input flex-1 min-w-[200px] px-3 py-2 rounded-lg text-sm outline-none"
+        />
+        <select
+          value={filtroChofer}
+          onChange={(e) => setFiltroChofer(e.target.value)}
+          className="theme-input px-3 py-2 rounded-lg text-sm cursor-pointer outline-none"
+        >
+          <option value="Todos">Todos los choferes</option>
+          {choferes.map(ch => (
+            <option key={ch.id} value={ch.nombre}>{ch.nombre}</option>
+          ))}
+        </select>
+        {(filtroChofer !== 'Todos' || busquedaCliente) && (
+          <button
+            onClick={() => { setFiltroChofer('Todos'); setBusquedaCliente(''); }}
+            className="px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-150 hover:opacity-80"
+            style={{ background: 'var(--bg-raised)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
+          >
+            ✕ Limpiar
+          </button>
+        )}
       </div>
 
       {/* TABS */}
@@ -1420,8 +1633,9 @@ function CeldaLocalidadEditable({ item, colors, zoneColor, onSave }) {
 // ════════════════════════════════════════════════════════════════
 function SortableFilaLocalidad({
   item, idx, colors, zoneColor, theme,
-  guardarCambioBD, guardarLocalidad,
-  obtenerNombreChofer, getPercentageColor, porcentajeStr
+  choferes, guardarCambioBD, guardarLocalidad,
+  obtenerNombreChofer, getPercentageColor, porcentajeStr,
+  onEliminar
 }) {
   const {
     attributes,
@@ -1492,21 +1706,32 @@ function SortableFilaLocalidad({
         />
       </td>
 
-      {/* ID CHOFER */}
-      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-        <input
-          type="number"
+      {/* DROPDOWN CHOFER */}
+      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+        <select
           value={item.idChofer || ''}
-          onChange={(e) => guardarCambioBD(item.id, 'idChofer', e.target.value)}
-          style={{ ...inputStyle, width: '50px' }}
+          onChange={(e) => guardarCambioBD(item.id, 'idChofer', parseInt(e.target.value) || 0)}
+          style={{
+            padding: '5px 8px',
+            border: `1px solid ${colors.borderLight}`,
+            borderRadius: '6px',
+            backgroundColor: colors.inputBg,
+            color: colors.textPrimary,
+            fontSize: '12px',
+            fontWeight: '500',
+            outline: 'none',
+            cursor: 'pointer',
+            maxWidth: '140px',
+            transition: 'all 0.2s ease',
+          }}
           onFocus={(e) => { e.target.style.borderColor = zoneColor; e.target.style.boxShadow = `0 0 0 3px ${zoneColor}20`; e.target.style.backgroundColor = colors.inputFocusBg; }}
           onBlur={(e) => { e.target.style.borderColor = colors.borderLight; e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = colors.inputBg; }}
-        />
-      </td>
-
-      {/* NOMBRE CHOFER */}
-      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '500', color: colors.textSecondary }}>
-        {obtenerNombreChofer(item.idChofer)}
+        >
+          <option value="">Sin asignar</option>
+          {(choferes || []).map(chofer => (
+            <option key={chofer.id} value={chofer.id}>{chofer.nombre}</option>
+          ))}
+        </select>
       </td>
 
       {/* PQTE DÍA */}
@@ -1548,6 +1773,30 @@ function SortableFilaLocalidad({
       {/* % DÍA */}
       <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '700', color: getPercentageColor(porcentajeStr), fontSize: '14px' }}>
         {porcentajeStr}
+      </td>
+
+      {/* ELIMINAR */}
+      <td style={{ padding: '12px 8px', textAlign: 'center', width: '36px' }}>
+        <button
+          onClick={onEliminar}
+          title="Eliminar recorrido"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#ef444480',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '4px',
+            padding: '4px',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#ef444415'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#ef444480'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+        >
+          <Trash2 size={14} strokeWidth={2} />
+        </button>
       </td>
     </tr>
   );
