@@ -21,7 +21,7 @@ export function Header({ onBrandClick, onMobileMenuClick }) {
   return (
     <header className="app-header">
       {isMobile && (
-        <button 
+        <button
           className="mobile-menu-btn"
           onClick={onMobileMenuClick}
           title="Abrir menú"
@@ -30,8 +30,8 @@ export function Header({ onBrandClick, onMobileMenuClick }) {
           <Menu size={24} />
         </button>
       )}
-      
-      <button 
+
+      <button
         className="brand-button"
         onClick={handleBrandClick}
         title="Ir a Recorridos (abre en nueva pestaña)"

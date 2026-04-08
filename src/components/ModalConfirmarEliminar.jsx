@@ -1,14 +1,24 @@
 import { AlertCircle, Trash2, X } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 
-const ModalConfirmarEliminarComponent = ({ 
-  isOpen, 
+const ModalConfirmarEliminarComponent = ({
+  isOpen,
   nombre = 'este chofer',
-  onConfirm, 
-  onCancel, 
-  tema = 'dark' 
+  onConfirm,
+  onCancel,
+  tema = 'dark'
 }) => {
   const isDark = tema === 'dark';
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) onCancel();
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onCancel]);
   const colors = {
     overlay: isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
     modalBg: isDark ? '#1e293b' : '#ffffff',
@@ -45,8 +55,8 @@ const ModalConfirmarEliminarComponent = ({
           position: 'absolute',
           inset: 0,
           backgroundColor: colors.overlay,
-          
-          
+
+
         }}
       />
 
@@ -66,7 +76,7 @@ const ModalConfirmarEliminarComponent = ({
           transform: isOpen ? 'scale(1)' : 'scale(0.95)',
           transition: 'opacity 120ms ease, transform 120ms ease',
         }}
-       onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {/* ICONO DE ALERTA */}
         <div

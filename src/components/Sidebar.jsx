@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, UsersRound, CarFront, Route, Globe, Sun, Moon, LayoutDashboard, CalendarDays } from 'lucide-react';
+import { Menu, X, UsersRound, CarFront, Route, Globe, Sun, Moon, LayoutDashboard, CalendarDays, BookOpen } from 'lucide-react';
 import '../styles/sidebar.css';
 
-export function Sidebar({ 
-  currentPage, 
-  setCurrentPage, 
-  theme, 
+export function Sidebar({
+  currentPage,
+  setCurrentPage,
+  theme,
   toggleTheme,
   isMobileOpen,
-  setIsMobileOpen 
+  setIsMobileOpen
 }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // Cargar estado del sidebar desde localStorage
@@ -38,12 +38,13 @@ export function Sidebar({
   }, []);
 
   // Si estamos en móvil, mostrar antes de navItems
-  
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clientes', label: 'Clientes', icon: UsersRound },
     { id: 'choferes', label: 'Choferes', icon: CarFront },
     { id: 'recorridos', label: 'Recorridos', icon: Route },
+    { id: 'historial', label: 'Historial', icon: BookOpen },
     { id: 'maps', label: 'Maps', icon: Globe },
   ];
 
@@ -58,12 +59,12 @@ export function Sidebar({
       <>
         {/* Overlay oscuro cuando está abierto */}
         {isMobileOpen && (
-          <div 
+          <div
             className="sidebar-overlay-backdrop"
             onClick={() => setIsMobileOpen(false)}
           />
         )}
-        
+
         {/* Sidebar como overlay */}
         <nav className={`sidebar sidebar-mobile ${isMobileOpen ? 'mobile-open' : 'mobile-closed'} theme-${theme}`}>
           {/* HEADER DEL SIDEBAR MÓVIL */}
@@ -72,7 +73,7 @@ export function Sidebar({
               <span className="brand-icon-mobile">📦</span>
               <h2 className="brand-text-mobile">Hogareño</h2>
             </div>
-            <button 
+            <button
               className="close-btn-mobile"
               onClick={() => setIsMobileOpen(false)}
               aria-label="Cerrar sidebar"
@@ -141,7 +142,7 @@ export function Sidebar({
             <h2 className="brand-text-desk">Hogareño</h2>
           </div>
         )}
-        <button 
+        <button
           className="hamburger-btn"
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label="Toggle sidebar"
