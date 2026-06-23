@@ -2543,70 +2543,126 @@ function PantallaHistorial() {
 }
 
 function PantallaMaps() {
-  const defaultQuery = 'Moron, Buenos Aires';
-  const [searchQuery, setSearchQuery] = useState(defaultQuery);
-  const [mapUrl, setMapUrl] = useState(
-    () =>
-      `https://maps.google.com/maps?q=${encodeURIComponent(defaultQuery)}&output=embed`
-  );
+  const { theme, choferes } = useContext(AppContext);
+  const [paradas, setParadas] = useState([]);
+  const mapRef = useRef(null);
+  const markerGroupRef = useRef(null);
 
-  const handleBuscar = (e) => {
-    e.preventDefault();
-    const q = searchQuery.trim() || defaultQuery;
-    setMapUrl(`https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`);
-  };
+  useEffect(() => {
+    const fetchParadas = async () => {
+      const { data, error } = await supabase.from('rutas_activas').select('*');
+      if (data) setParadas(data);
+    };
+    fetchParadas();
+
+    const canal = supabase.channel('maps:rutas_activas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rutas_activas' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setParadas((prev) => [...prev, payload.new]);
+        } else if (payload.eventType === 'DELETE') {
+          setParadas((prev) => prev.filter((p) => p.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Inicializar mapa si L existe y no esta inicializado
+    if (window.L && !mapRef.current && document.getElementById('map-container')) {
+      const map = window.L.map('map-container').setView([-34.65, -58.6], 12);
+      
+      const styleStr = theme === 'dark' ? 'dark_all' : 'rastertiles/voyager';
+      window.L.tileLayer(`https://{s}.basemaps.cartocdn.com/${styleStr}/{z}/{x}/{y}{r}.png`, {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+
+      markerGroupRef.current = window.L.layerGroup().addTo(map);
+      mapRef.current = map;
+    }
+
+    if (mapRef.current && markerGroupRef.current) {
+      // Limpiar marcadores
+      markerGroupRef.current.clearLayers();
+
+      // Agregar nuevos marcadores
+      paradas.forEach((parada) => {
+        if (parada.lat && parada.lng) {
+          const chName = parada.creado_por_email || `ID: ${parada.chofer_id}`;
+          
+          const icon = window.L.divIcon({
+            html: `<div style="background-color: #f59e0b; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.5);"></div>`,
+            className: '',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+            popupAnchor: [0, -11]
+          });
+
+          const m = window.L.marker([parada.lat, parada.lng], { icon });
+          m.bindPopup(`
+            <div style="font-family: sans-serif; min-width: 150px;">
+              <div style="font-weight: bold; color: #1e293b; margin-bottom: 2px;">Dirección: ${parada.direccion}</div>
+              <div style="color: #64748b; font-size: 12px;">Escaneado por: ${chName}</div>
+            </div>
+          `);
+          m.addTo(markerGroupRef.current);
+        }
+      });
+    }
+  }, [paradas, theme, choferes]);
+  
+  // Update tilelayer on theme change without re-initializing
+  useEffect(() => {
+    if (mapRef.current && window.L) {
+      const map = mapRef.current;
+      map.eachLayer((layer) => {
+        if (layer instanceof window.L.TileLayer) {
+          map.removeLayer(layer);
+        }
+      });
+      const styleStr = theme === 'dark' ? 'dark_all' : 'rastertiles/voyager';
+      window.L.tileLayer(`https://{s}.basemaps.cartocdn.com/${styleStr}/{z}/{x}/{y}{r}.png`, {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+    }
+  }, [theme]);
+
+  // Handle resizing issues with Leaflet in React
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mapRef.current) mapRef.current.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="w-full min-h-screen p-6" style={{ background: 'var(--bg-page)', color: 'var(--text-2)' }}>
       <header className="flex items-center gap-3 mb-6">
         <Map size={32} strokeWidth={1.75} style={{ color: 'var(--brand-blue)' }} aria-hidden />
         <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>
-          Buscador de Direcciones
+          Mapa Administrativo en Tiempo Real
         </h1>
       </header>
 
-      <form onSubmit={handleBuscar} className="flex flex-col sm:flex-row gap-3 mb-6 max-w-3xl">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Ej. Moron, Buenos Aires"
-          className="theme-input flex-1 px-4 py-3 rounded-lg text-sm outline-none border transition-colors"
-          style={{
-            background: 'var(--bg-surface)',
-            color: 'var(--text-1)',
-            borderColor: 'var(--border)',
-          }}
-          aria-label="Buscar dirección"
-        />
-        <button
-          type="submit"
-          className="px-6 py-3 rounded-lg font-semibold text-sm text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-          style={{ background: 'var(--brand-blue)' }}
-        >
-          Buscar
-        </button>
-      </form>
-
       <div
+        id="map-container"
         className="rounded-xl border overflow-hidden shadow-sm w-full"
         style={{
           minHeight: 'min(70vh, 800px)',
           height: '70vh',
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
+          position: 'relative',
+          zIndex: 1
         }}
       >
-        <iframe
-          title="Mapa de direcciones"
-          src={mapUrl}
-          width="100%"
-          height="100%"
-          style={{ border: 0, display: 'block', minHeight: '500px' }}
-          frameBorder={0}
-          allowFullScreen
-          loading="lazy"
-        />
       </div>
     </div>
   );
